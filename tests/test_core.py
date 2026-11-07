@@ -266,3 +266,13 @@ def test_order_for_a_table():
     assert o["guest"] == "Table 2" and [(it["menu"], it["qty"]) for it in o["items"]] == [("pizza", 2), ("soda", 1)]
     assert "for Table 2" in r["say"]
     assert run(k, "fire table 2")["order"] == o["num"] and o["status"] == "cooking"
+
+
+def test_rename_an_order():
+    k = kitchen()
+    r = run(k, "Can you rename order 66 to be for table 2")
+    assert "66 is not open" in r["say"] or "Which order" in r["say"]
+    assert run(k, "Can you rename order 45 to be for table 2")["say"] == "Order 45 is now for Table 2."
+    assert k["orders"]["45"]["guest"] == "Table 2" and run(k, "fire table 2")["order"] == 45
+    run(k, "change the name on order 46 to ben frank")
+    assert k["orders"]["46"]["guest"] == "Ben Frank"

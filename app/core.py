@@ -438,6 +438,28 @@ _NAME_STOP = {"it", "its", "it's", "with", "and", "who", "that", "they", "he", "
 _COUNT = {"a": 1, "an": 1, "one": 1, "single": 1, "double": 2, "couple": 2, "pair": 2}
 
 
+_RENAME = r"\b(rename|re name|change (the )?(name|guest)|switch (the )?(name|guest)|put (it|that|order \d+) under|under the name)\b"
+
+
+def _parse_rename(t: str):
+    """"Rename order 66 to be for table 2" / "change the name on order 66 to Ben Frank": (order, new guest name)."""
+    num = re.search(r"\b(?:order|ticket|number) (?:number )?(\d{1,4})\b", t)
+    if not re.search(_RENAME, t) or not num:
+        return None
+    to = re.search(r"\b(?:to|as|under)(?: be)?(?: for)?(?: the name)?(?: the)? ([\w' ]+)$", t[num.end():])
+    if not to:
+        return None
+    table = re.match(r"table (?:number )?(\d+)\b", to.group(1))
+    if table:
+        return num.group(1), f"Table {table.group(1)}"
+    name = []
+    for w in to.group(1).split()[:3]:
+        if w in _NAME_STOP or w in ("please", "instead", "now", "thanks"):
+            break
+        name.append(w[:1].upper() + w[1:])
+    return (num.group(1), " ".join(name)) if name else None
+
+
 def _parse_new_order(text: str, t: str):
     """The guest, app and dishes in "new order for <name> ..."; None unless it names a guest and a dish."""
     if not re.search(_NEW_ORDER, t) or re.search(r"\b(order|ticket) (number )?\d", t):
@@ -487,6 +509,10 @@ def parse_commands(text: str, k) -> list[dict]:
     own takes the one before it.
     """
     t = _normalize(text)
+    rename = _parse_rename(t)
+    if rename:
+        return [{"intent": "rename", "order": rename[0], "item": None, "items": [], "minutes": None, "text": text,
+                 "guest": rename[1][:40]}]
     new = _parse_new_order(text, t)
     if new:
         return [{"intent": "new_order", "order": None, "item": None, "items": [], "minutes": None, "text": text, "new": new}]
@@ -675,6 +701,10 @@ def run_command(k, cmd) -> dict:
                 + ", ".join(it["mod"] or "no doneness" for it in o["items"] if it["menu"] == mid) + "."}
     label = (f"{mod} " if mod else "") + BY_ID[mid]["name"].lower() if mid else None
 
+    if intent == "rename":
+        old, o["guest"] = o["guest"], cmd["guest"]
+        log(k, f"✎ #{num} {old} → {o['guest']}")
+        return {"ok": True, "order": o["num"], "say": f"Order {num} is now for {o['guest']}."}
     if intent == "eta":
         base = o.get("pickup_at") or now_ms()
         at = base + cmd.get("shift") * minutes * 60_000 if cmd.get("shift") else now_ms() + minutes * 60_000
