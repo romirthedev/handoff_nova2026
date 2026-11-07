@@ -139,17 +139,22 @@ def _refresh_status(o):
         o["status"] = "ready"
 
 
-def start_timers(k, o, menu_id=None, minutes=None):
+def _picked(it, menu_id=None, mod=None) -> bool:
+    """Is this the item a command means? "the medium rare steak" narrows by doneness as well as dish."""
+    return (not menu_id or it["menu"] == menu_id) and (not mod or (it["mod"] or "").lower() == mod)
+
+
+def start_timers(k, o, menu_id=None, minutes=None, mod=None):
     """Start (or restart) timers on an order. Returns the items started and the ones that need no timer."""
     started, skipped = [], []
     for it in o["items"]:
-        if menu_id and it["menu"] != menu_id:
+        if not _picked(it, menu_id, mod):
             continue
         mins = minutes if minutes is not None else it["minutes"]
         if not mins:
             skipped.append(it)
             continue
-        if not menu_id and minutes is None and it["timer"] and not it["done"]:
+        if not menu_id and not mod and minutes is None and it["timer"] and not it["done"]:
             continue  # "fire order 45" leaves running timers alone
         it["timer"] = {"start": now_ms(), "secs": mins * 60 / max(k.get("speed", 1), 1), "mins": mins}
         it["done"] = False
@@ -158,10 +163,10 @@ def start_timers(k, o, menu_id=None, minutes=None):
     return started, skipped
 
 
-def stop_timers(o, menu_id=None):
+def stop_timers(o, menu_id=None, mod=None):
     stopped = []
     for it in o["items"]:
-        if (not menu_id or it["menu"] == menu_id) and it["timer"]:
+        if _picked(it, menu_id, mod) and it["timer"]:
             it["timer"], it["done"] = None, False
             stopped.append(it)
     if o["status"] == "cooking" and not any(it["timer"] for it in o["items"]):
@@ -169,10 +174,10 @@ def stop_timers(o, menu_id=None):
     return stopped
 
 
-def add_time(k, o, menu_id, minutes):
+def add_time(k, o, menu_id, minutes, mod=None):
     changed = []
     for it in o["items"]:
-        if (not menu_id or it["menu"] == menu_id) and it["timer"]:
+        if _picked(it, menu_id, mod) and it["timer"]:
             left = remaining_s(it)
             it["timer"] = {"start": now_ms(), "secs": left + minutes * 60 / max(k.get("speed", 1), 1),
                            "mins": it["timer"]["mins"] + minutes}
@@ -355,6 +360,7 @@ _VIEW_LATE = r"\b(late|behind|overdue)\b"
 _ALL = r"\b(all|every|each|any|everything)\b"
 _BULK = ("start", "stop", "add", "ready", "query")  # safe to run across the rail; cancel and hand-off need a number
 _WAITING = ("new", "cooking", "ready", "issue")
+_DONENESS = r"\b(medium rare|medium well|well done|rare|medium)\b"  # longest first: "medium rare" is not "medium"
 _MINUTES = r"\b(\d+)(?: and a half| half)? ?(?:minutes?|mins?)\b|\bhalf (?:a|an) ?minute\b|\b30 seconds\b"
 
 
@@ -424,8 +430,10 @@ def parse_commands(text: str, k) -> list[dict]:
             i = (_nearest(refs, m.start(), m.end(), has) if refs else None)
             i = pick(m.start(), m.end()) if i is None else i
             slots[i]["items"].append((m.start(), mid))
+    mod = (re.search(_DONENESS, t) or [None])[0]
+    said = re.sub(_DONENESS, lambda m: " " * len(m.group(0)), t)  # "well done" is a doneness, not "done"
     for name, rx in _INTENTS:
-        for m in re.finditer(rx, t):
+        for m in re.finditer(rx, said):
             slots[pick(m.start(), m.end())]["intents"].add(name)
     for m in re.finditer(_LATER + "|" + _SOONER, t):  # "push 45 back 10 minutes" moves the pickup; "5 minutes away" sets it
         slots[pick(m.start(), m.end())]["shift"] = -1 if re.fullmatch(_SOONER, m.group(0)) else 1
@@ -443,7 +451,8 @@ def parse_commands(text: str, k) -> list[dict]:
             intent = prev
         prev = intent or prev
         cmds.append({"intent": intent, "order": refs[i][2] if refs else None, "item": items[0] if items else None,
-                     "items": items, "minutes": slot["minutes"], "shift": slot["shift"], "text": text})
+                     "items": items, "minutes": slot["minutes"], "shift": slot["shift"],
+                     "mod": mod if items else None, "text": text})
     if not refs and re.search(_VIEW_VERB, t) and not re.search(_ACTING, t) and not slots[0]["intents"] & {"next", "eta"}:
         items = list(dict.fromkeys(mid for _, mid in sorted(slots[0]["items"])))
         return [{"intent": "view", "order": None, "item": None, "items": [], "minutes": None, "text": text,
@@ -503,7 +512,7 @@ def _for_every_order(cmd, k) -> list[dict]:
     for o in sorted(k["orders"].values(), key=lambda o: o["placed"]):
         if o["status"] not in _WAITING:
             continue
-        has = [mid for mid in wanted if any(it["menu"] == mid for it in o["items"])]
+        has = [mid for mid in wanted if any(_picked(it, mid, cmd.get("mod")) for it in o["items"])]
         if wanted and not has:
             continue
         out.append({**cmd, "order": str(o["num"]), "item": has[0] if has else None, "items": has, "all": True})
@@ -550,7 +559,8 @@ def run_command(k, cmd) -> dict:
     if num is None and cmd.get("all"):
         if intent not in _BULK:
             return {"ok": False, "say": "I can only do that one order at a time. Say the order number."}
-        what = " or ".join(BY_ID[m]["name"].lower() for m in cmd.get("items") or []) or "anything"
+        what = (f"{cmd['mod']} " if cmd.get("mod") else "") \
+            + (" or ".join(BY_ID[m]["name"].lower() for m in cmd.get("items") or []) or "anything")
         return {"ok": False, "say": f"No open order has {what}."}
     if num is None or num not in k["orders"]:
         return {"ok": False, "say": f"Which order? I didn't hear an order number{f' ({num} is not open)' if num else ''}."}
@@ -559,7 +569,11 @@ def run_command(k, cmd) -> dict:
         return {"ok": False, "order": o["num"],
                 "say": f"Order {num} has no {BY_ID[mid]['name'].lower()}. It has "
                        + ", ".join(BY_ID[it["menu"]]["name"].lower() for it in o["items"]) + "."}
-    label = BY_ID[mid]["name"].lower() if mid else None
+    mod = cmd.get("mod")
+    if mid and mod and not any(_picked(it, mid, mod) for it in o["items"]):
+        return {"ok": False, "order": o["num"], "say": f"Order {num} has no {mod} {BY_ID[mid]['name'].lower()}. It's "
+                + ", ".join(it["mod"] or "no doneness" for it in o["items"] if it["menu"] == mid) + "."}
+    label = (f"{mod} " if mod else "") + BY_ID[mid]["name"].lower() if mid else None
 
     if intent == "eta":
         base = o.get("pickup_at") or now_ms()
@@ -568,7 +582,7 @@ def run_command(k, cmd) -> dict:
         log(k, f"⇢ #{num} {courier_word(o).lower()} in {plural(mins_until(o['pickup_at']), 'min')}")
         return {"ok": True, "order": o["num"], "say": f"Order {num}: " + timing_say(o)}
     if intent == "start":
-        started, skipped = start_timers(k, o, mid, minutes)
+        started, skipped = start_timers(k, o, mid, minutes, mod)
         if not started:
             if mid:
                 return {"ok": False, "order": o["num"], "say": f"{BY_ID[mid]['name']} doesn't need a timer. Say a time, like \"5 minutes\", to set one."}
@@ -577,12 +591,12 @@ def run_command(k, cmd) -> dict:
         log(k, f"▷ #{num} timer: " + "; ".join(parts))
         return {"ok": True, "order": o["num"], "say": f"Order {num}, {o['guest'].split()[0]}: " + "; ".join(parts) + "."}
     if intent == "stop":
-        stopped = stop_timers(o, mid)
+        stopped = stop_timers(o, mid, mod)
         log(k, f"■ #{num} timer stopped" + (f" ({label})" if label else ""))
         return {"ok": bool(stopped), "order": o["num"],
                 "say": f"Stopped the {label or 'timers'} on order {num}." if stopped else f"No timer running on order {num}."}
     if intent == "add":
-        changed = add_time(k, o, mid, minutes)
+        changed = add_time(k, o, mid, minutes, mod)
         if not changed:
             return {"ok": False, "order": o["num"], "say": f"No timer running on order {num} to add time to."}
         log(k, f"+ #{num} +{minutes:g} min")

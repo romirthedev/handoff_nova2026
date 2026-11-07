@@ -214,3 +214,13 @@ def test_show_changes_the_view_not_the_orders():
     assert core.parse_command("show order 45", k)["intent"] == "show"
     assert core.parse_command("what should I start next", k)["intent"] == "next"
     assert core.parse_command("which order should we cook next", k)["intent"] == "next"
+
+
+def test_bulk_start_by_doneness():
+    k = core.new_kitchen("t")
+    r = core.run_commands(k, core.parse_commands("Can you start the timers for all of the steaks that are set to medium rare", k))
+    assert [x["order"] for x in r["results"]] == [45]
+    assert k["orders"]["45"]["status"] == "cooking" and k["orders"]["53"]["status"] == "new"
+    core.run_commands(k, core.parse_commands("start order 51 well done burger", k))
+    assert [bool(it["timer"]) for it in k["orders"]["51"]["items"]] == [True, False, False]
+    assert "no medium rare" in core.run_command(k, core.parse_command("start order 53 medium rare steak", k))["say"]
