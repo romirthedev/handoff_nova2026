@@ -9,7 +9,8 @@ const inFilter = (o, f) => (f === "open" ? isOpen(o) : f === "out" ? !isOpen(o) 
 const EXAMPLES = ["Start the timer for order 45 steak", "Show me all the orders that are cooking", "Show orders with burgers",
                   "Show everything", "What should I start next?", "Dasher for order 45 is 10 minutes away",
                   "Push order 50 back 10 minutes", "For all orders with garlic bread start the garlic bread timer",
-                  "How long on order 45?", "Order 45 picked up"];
+                  "How long on order 45?", "Order 45 picked up",
+                  "New order for Ben Frank: two fried shrimp, fries and a smashburger"];
 
 let state = null, menu = {}, sources = [], offset = 0, filter = "open", focusNum = null;
 let view = null;               // set by voice ("show orders with burgers"): dishes, app, late; status goes in filter

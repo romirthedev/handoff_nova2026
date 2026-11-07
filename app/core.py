@@ -29,6 +29,17 @@ def new_order(num, guest, source, items, courier=None, placed=None, pickup_at=No
     return o
 
 
+def add_order(k, guest, source, lines, courier=None, pickup_in=None):
+    """Put a new ticket on the rail, from the new-order form or from voice. Returns the order."""
+    num = max([int(n) for n in k["orders"]] + [40]) + 1
+    o = new_order(num, guest, source, lines, courier)
+    if pickup_in:
+        set_pickup(o, now_ms() + max(1, min(pickup_in, 240)) * 60_000)
+    k["orders"][str(num)] = o
+    log(k, f"+ #{num} {guest} ({source})")
+    return o
+
+
 def prep_minutes(o) -> int:
     """Dishes cook side by side, so an order takes as long as its slowest dish, plus packing."""
     return max((it["minutes"] or 0) for it in o["items"]) + PACK_MIN
@@ -338,7 +349,9 @@ _INTENTS = [  # earlier wins when one order hears several
     ("cancel", r"\b(cancel|cancelled|canceled|void|scratch)\b"),
     ("stop", r"\b(stop|pause|kill|reset|clear)\b"),
     ("query", r"\b(how long|time left|how much (time|longer)|status|where (are|is)|what'?s left|check on|eta)\b"),
-    ("next", r"\b(what'?s next|next (order|ticket|up)|oldest|start next|(what|which)( order)? (should|do) (i|we) (start|fire|cook))\b"),
+    ("next", r"\b(what'?s next|next (order|ticket|up)|oldest|start next|(what|which)( order)? (should|do) (i|we) (start|fire|cook)|"
+             r"(what|which)\b[\w' ]{0,30}\b(have|need|needs|got|should|supposed|ought) (to )?(be )?(start|fire|cook)\w*|"
+             r"(what|which)\b[\w' ]{0,30}\bis (due|up next))\b"),
     ("reopen", r"\b(reopen|re open|undo|back to new)\b"),
     ("start", r"\b(start|fire|begin|cook|drop|timer|put on|throw on|go on)\b"),
     ("show", r"\b(show|open|pull up|find|highlight)\b"),
@@ -405,6 +418,50 @@ def _nearest(refs, a, b, prefer=None):
     return None if best is None else best[1]
 
 
+# "We just got an order for Ben Frank: two fried shrimp, a side of fries and a smashburger" rings in a ticket
+_NEW_ORDER = (r"\b(new order|(got|get|getting|taking|take|ring|ringing|put|putting|enter|place|placing|incoming|add|adding)"
+              r"( \w+){0,3} orders?|orders? (just )?(came|comes|coming) in)\b")
+_NAME_STOP = {"it", "its", "it's", "with", "and", "who", "that", "they", "he", "she", "please", "for", "the", "a", "an",
+              "of", "is", "wants", "want", "ordered", "ordering", "on", "from", "via", "through", "pickup", "pick", "in"}
+_COUNT = {"a": 1, "an": 1, "one": 1, "single": 1, "double": 2, "couple": 2, "pair": 2}
+
+
+def _parse_new_order(text: str, t: str):
+    """The guest, app and dishes in "new order for <name> ..."; None unless it names a guest and a dish."""
+    if not re.search(_NEW_ORDER, t) or re.search(r"\b(order|ticket) (number )?\d", t):
+        return None
+    lines, taken = [], []
+    for alias, mid in _ALIASES:
+        for m in re.finditer(rf"\b{re.escape(alias)}(?:e?s)?\b", t):
+            if any(a < m.end() and m.start() < b for a, b in taken):
+                continue
+            taken.append((m.start(), m.end()))
+            before = t[:m.start()].split()[-4:]
+            qty = next((int(w) if w.isdigit() else _COUNT[w] for w in reversed(before)
+                        if (w.isdigit() and 0 < int(w) <= 20) or w in _COUNT), 1)
+            near = " ".join(before) + " " + " ".join(t[m.end():].split()[:2])
+            mod = (re.search(_DONENESS, near) or [None])[0] if isinstance(BY_ID[mid]["cook"], dict) else None
+            lines.append((m.start(), mid, qty, mod))
+    words = re.sub(r"[^\w\s']", " ", text).split()
+    menu_words = {w for a, _ in _ALIASES for w in a.split()}
+    name = []
+    for i, w in enumerate(words):
+        if w.lower() in ("for", "under", "named") and not name:
+            for w2 in words[i + 1:i + 4]:
+                lw = w2.lower()
+                if lw in _NAME_STOP or lw in menu_words or lw.rstrip("s") in menu_words or lw in _UNITS or w2.isdigit():
+                    break
+                name.append(w2[:1].upper() + w2[1:])
+            if name:
+                break
+    if not lines or not name:
+        return None
+    source = next((s for s, rx in _VIEW_SOURCES.items() if re.search(rf"\b({rx})\b", t)), "Walk-in")
+    mins = re.search(r"\b(pick ?up|ready|here|arriv\w*)\b.{0,20}?\b(\d+) ?(minutes?|mins?)\b", t)
+    return {"guest": " ".join(name)[:40], "source": source, "pickup_in": int(mins.group(2)) if mins else None,
+            "items": [(mid, q, mod) for _, mid, q, mod in sorted(lines)]}
+
+
 def parse_commands(text: str, k) -> list[dict]:
     """Turn what someone said at the pass into one command per order mentioned.
 
@@ -413,6 +470,9 @@ def parse_commands(text: str, k) -> list[dict]:
     own takes the one before it.
     """
     t = _normalize(text)
+    new = _parse_new_order(text, t)
+    if new:
+        return [{"intent": "new_order", "order": None, "item": None, "items": [], "minutes": None, "text": text, "new": new}]
     refs = _order_refs(t, k)
     slots = [{"intents": set(), "items": [], "minutes": None, "shift": None} for _ in refs or [None]]
     pick = (lambda a, b, prefer=None: _nearest(refs, a, b, prefer) or 0) if refs else (lambda a, b, prefer=None: 0)
@@ -538,6 +598,12 @@ def run_commands(k, cmds) -> dict:
 def run_command(k, cmd) -> dict:
     """Apply a parsed command. Returns {ok, say, order} where say is read aloud at the pass."""
     intent, num, mid, minutes = cmd["intent"], cmd["order"], cmd["item"], cmd["minutes"]
+    if intent == "new_order":
+        n = cmd["new"]
+        o = add_order(k, n["guest"], n["source"], n["items"], pickup_in=n["pickup_in"])
+        dishes = ", ".join((f"{it['qty']} " if it["qty"] > 1 else "") + item_name(it).lower() for it in o["items"])
+        return {"ok": True, "order": o["num"], "new_order": o["num"],
+                "say": f"New order {o['num']} for {o['guest'].split()[0]}: {dishes}. {timing_say(o)}"}
     if intent == "view":
         n = sum(in_view(o, cmd["view"]) for o in k["orders"].values())
         return {"ok": True, "view": cmd["view"], "count": n, "say": view_say(cmd["view"], n)}

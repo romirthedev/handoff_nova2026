@@ -247,12 +247,8 @@ def build_app() -> FastAPI:
         lines = [(x.menu, max(1, min(x.qty, 20)), (x.mod or None)) for x in body.items if x.menu in BY_ID]
         if not lines or not body.guest.strip():
             raise HTTPException(400, "An order needs a guest name and at least one item.")
-        num = max([int(n) for n in k["orders"]] + [40]) + 1
-        o = core.new_order(num, body.guest.strip()[:40], body.source[:20], lines, body.courier)
-        if body.pickup_in:
-            core.set_pickup(o, core.now_ms() + max(1, min(body.pickup_in, 240)) * 60_000)
-        k["orders"][str(num)] = o
-        core.log(k, f"+ #{num} {body.guest.strip()} ({body.source})")
+        o = core.add_order(k, body.guest.strip()[:40], body.source[:20], lines, body.courier, body.pickup_in)
+        num = o["num"]
         await hub.changed(k, {"type": "new_order", "order": num, "say": f"New {body.source} order, number {num}. {core.timing_say(o)}"})
         return {"num": num}
 

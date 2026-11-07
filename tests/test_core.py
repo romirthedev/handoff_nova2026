@@ -224,3 +224,24 @@ def test_bulk_start_by_doneness():
     core.run_commands(k, core.parse_commands("start order 51 well done burger", k))
     assert [bool(it["timer"]) for it in k["orders"]["51"]["items"]] == [True, False, False]
     assert "no medium rare" in core.run_command(k, core.parse_command("start order 53 medium rare steak", k))["say"]
+
+
+def test_new_order_by_voice():
+    k = core.new_kitchen("t")
+    said = ("All right we just got one order for Ben Frank it's for two fried shrimp with a side of fries "
+            "a Caesar salad and the Smashburger")
+    r = core.run_commands(k, core.parse_commands(said, k))
+    o = k["orders"][str(r["order"])]
+    assert o["guest"] == "Ben Frank" and o["source"] == "Walk-in"
+    assert [(it["menu"], it["qty"]) for it in o["items"]] == [("shrimp", 2), ("fries", 1), ("caesar", 1), ("burger", 1)]
+    c = core.parse_command("new order for sarah, a medium rare steak and two cokes, DoorDash, pickup in 25 minutes", k)
+    assert c["new"] == {"guest": "Sarah", "source": "DoorDash", "pickup_in": 25,
+                        "items": [("ribeye", 1, "medium rare"), ("soda", 2, None)]}
+    assert core.parse_command("we got order 45 ready", k)["intent"] == "ready"
+
+
+def test_what_to_start_phrasings():
+    k = core.new_kitchen("t")
+    for said in ("What's the order that I have to start right now", "which ticket needs to be started", "what do I need to fire"):
+        assert core.parse_command(said, k)["intent"] == "next", said
+    assert core.parse_command("which orders are late", k)["intent"] == "view"
