@@ -16,7 +16,7 @@ from PIL import Image, ImageOps
 
 from .menu import BY_ID, MENU
 
-MODEL = os.environ.get("HANDOFF_VISION_MODEL", "claude-opus-5-5")
+MODEL = os.environ.get("HANDOFF_VISION_MODEL", "claude-sonnet-5-5")
 # Talk to the API directly even when launched from a tool that sets its own ANTHROPIC_BASE_URL.
 _client = anthropic.AsyncAnthropic(base_url=os.environ.get("HANDOFF_ANTHROPIC_BASE_URL", "https://api.anthropic.com")) \
     if os.environ.get("ANTHROPIC_API_KEY") else None
