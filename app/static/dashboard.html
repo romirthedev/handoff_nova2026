@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Handoff · Tickets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/base.css">
+<style>
+  body { display: flex; flex-direction: column; }
+  .wrap { max-width: 1560px; padding: 0 20px; }
+  .status .meta b { color: var(--fg); font-weight: 400; }
+  .status .live { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); display: inline-block; margin-right: 6px; vertical-align: 1px; }
+  .status .live.on { background: var(--ok); box-shadow: 0 0 0 3px rgba(163, 217, 165, .15); }
+
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 26px 0 16px; flex-wrap: wrap; }
+  .head h1 { font: 300 40px/1 var(--sans); letter-spacing: -0.03em; margin: 0 0 12px; }
+  .head .ctl { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .head .btn { padding: 9px 16px 9px 14px; font-size: 11px; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%); }
+  .speed { display: flex; align-items: center; gap: 8px; font: 400 10.5px var(--mono); color: var(--dim); text-transform: uppercase; }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; padding-bottom: 40px; }
+  .rail { display: grid; grid-template-columns: repeat(auto-fill, minmax(286px, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+  .empty { grid-column: 1 / -1; padding: 60px 20px; text-align: center; color: var(--muted); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 14px; }
+
+  .ticket { position: relative; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 14px 16px 12px; display: flex; flex-direction: column;
+            gap: 2px; min-height: 236px; transition: background .3s; }
+  .ticket.enter { animation: rise .35s ease both; }
+  .ticket:hover { background: rgba(243, 239, 230, 0.02); }
+  .ticket::before { content: ""; position: absolute; inset: -1px; pointer-events: none; border: 1px solid transparent; transition: border-color .3s; }
+  .ticket.s-issue::before { border-color: var(--bad-line); }
+  .ticket.s-verified::before { border-color: var(--ok-line); }
+  .ticket.s-issue { background: var(--bad-bg); }
+  .ticket.s-verified { background: var(--ok-bg); }
+  .ticket.s-picked_up, .ticket.s-cancelled { opacity: .45; }
+  .ticket.s-cancelled h3, .ticket.s-cancelled .items .n { text-decoration: line-through; text-decoration-color: var(--dim); }
+  .s-cancelled .pill { color: var(--bad); border-color: var(--bad-line); }
+  .ticket.focus::before { border-color: var(--fg); }
+  .ticket.flash-ok { animation: flashOk 1.1s ease 3; }
+  .ticket.flash-bad { animation: flashBad 1.1s ease 3; }
+  @keyframes flashOk { 0%, 100% { box-shadow: inset 0 0 0 0 transparent; } 40% { box-shadow: inset 0 0 0 2px var(--ok), 0 0 40px rgba(163, 217, 165, .25); } }
+  @keyframes flashBad { 0%, 100% { box-shadow: inset 0 0 0 0 transparent; } 40% { box-shadow: inset 0 0 0 2px var(--bad), 0 0 40px rgba(239, 149, 128, .28); } }
+
+  .ticket header { display: flex; align-items: center; gap: 8px; font: 400 10.5px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .02em; }
+  .ticket header .num { color: var(--fg); font-weight: 500; font-size: 12px; }
+  .ticket header .age { margin-left: auto; text-transform: none; }
+  .ticket header .age.warm { color: var(--heat); } .ticket header .age.late { color: var(--bad); }
+  .pill { font: 400 9.5px var(--mono); text-transform: uppercase; letter-spacing: .04em; padding: 2px 6px; border: 1px solid var(--line-strong); color: var(--muted); }
+  .s-cooking .pill { color: var(--heat); border-color: rgba(233, 194, 127, .45); }
+  .s-ready .pill { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  .s-issue .pill { color: var(--bad); border-color: var(--bad-line); }
+  .s-verified .pill { color: var(--ok); border-color: var(--ok-line); }
+  .ticket h3 { font: 300 23px/1.2 var(--sans); letter-spacing: -0.02em; margin: 8px 0 0; }
+  .ticket .sub { font: 400 10.5px var(--mono); color: var(--dim); margin-bottom: 8px; }
+  .items { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); flex: 1; }
+  .items li { position: relative; display: grid; grid-template-columns: 22px 22px 1fr auto; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .items li .q { font: 400 11px var(--mono); color: var(--muted); }
+  .items li .e { font-size: 15px; line-height: 1; }
+  .items li .n { line-height: 1.25; min-width: 0; }
+  .items li .n small { display: block; font: 400 10px var(--mono); color: var(--dim); text-transform: lowercase; }
+  .items li.miss .n { color: var(--bad); }
+  .items li .bar { position: absolute; left: 0; bottom: -1px; height: 1px; background: var(--heat); width: 0; }
+  .timer { all: unset; cursor: pointer; font: 400 11px var(--mono); color: var(--dim); padding: 3px 6px; border: 1px solid transparent; white-space: nowrap; text-align: right; min-width: 52px; }
+  .timer:hover { border-color: var(--line-strong); color: var(--fg); }
+  .timer.run { color: var(--heat); }
+  .timer.up { color: var(--bg); background: var(--ok); }
+  .timer.up.fresh { animation: pulse 1s ease infinite; }
+  .timer.none { cursor: default; } .timer.none:hover { border-color: transparent; color: var(--dim); }
+  @keyframes pulse { 50% { opacity: .45; } }
+  .check { font: 400 10.5px/1.5 var(--mono); padding: 8px 0 2px; }
+  .check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
+  .ticket footer { display: flex; gap: 14px; padding-top: 10px; margin-top: auto; }
+  .ticket footer button { all: unset; cursor: pointer; font: 400 10px var(--mono); text-transform: uppercase; color: var(--muted); border-bottom: 1px solid transparent; letter-spacing: .02em; }
+  .ticket footer button:hover { color: var(--fg); border-bottom-color: var(--line-strong); }
+
+  aside { position: sticky; top: 14px; display: flex; flex-direction: column; gap: 22px; }
+  .panel { border: 1px solid var(--line); background: var(--panel); padding: 16px; }
+  .panel h2.label { padding-bottom: 12px; }
+  .pair { display: grid; grid-template-columns: 116px 1fr; gap: 14px; align-items: center; }
+  .pair img { width: 116px; height: 116px; display: block; background: #fff; }
+  .pair p { margin: 0 0 8px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+  .pair p b { color: var(--fg); font-weight: 500; }
+  .pair-note { margin: 10px 0 0; font: 400 10.5px/1.5 var(--mono); color: var(--dim); }
+  .pair-note:empty { display: none; }
+  .pair-note b { color: var(--muted); font-weight: 400; }
+  .pair-note .warn { color: var(--bad); }
+  .camstate { font: 400 10.5px var(--mono); color: var(--muted); display: flex; align-items: center; gap: 6px; }
+
+  .result { margin-top: 14px; border: 1px solid var(--line); padding: 14px; animation: rise .3s ease both; }
+  .result.ok { border-color: var(--ok-line); background: var(--ok-bg); }
+  .result.bad { border-color: var(--bad-line); background: var(--bad-bg); }
+  .result .big { font: 300 26px/1.1 var(--sans); letter-spacing: -0.02em; }
+  .result.ok .big { color: var(--ok); } .result.bad .big { color: var(--bad); }
+  .result .who { font-size: 14px; margin-top: 6px; }
+  .result ul { list-style: none; margin: 10px 0 0; padding: 0; font: 400 11px/1.8 var(--mono); }
+  .result li.m { color: var(--bad); } .result li.x { color: var(--heat); } .result li.p { color: var(--muted); }
+  .result .meta { font: 400 10px var(--mono); color: var(--dim); margin-top: 8px; }
+  .result.waiting { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 10px; }
+
+  .mic { display: flex; align-items: center; gap: 14px; width: 100%; }
+  .mic .btn { flex: 1; }
+  .mic .btn.on { background: var(--ok); }
+  .heard { font: 400 12px/1.5 var(--mono); color: var(--fg); min-height: 36px; margin: 12px 0 10px; }
+  .heard .interim { color: var(--dim); }
+  .heard .reply { display: block; color: var(--muted); margin-top: 4px; }
+  .heard .reply.no { color: var(--bad); }
+  .cmdbox { display: flex; border: 1px solid var(--line-strong); }
+  .cmdbox input { all: unset; flex: 1; padding: 10px 12px; font: 400 13px var(--sans); color: var(--fg); min-width: 0; }
+  .cmdbox input::placeholder { color: var(--dim); }
+  .cmdbox button { all: unset; cursor: pointer; font: 400 10px var(--mono); text-transform: uppercase; color: var(--muted); padding: 0 12px; border-left: 1px solid var(--line-strong); }
+  .cmdbox button:hover { color: var(--fg); background: var(--hover); }
+  .examples { margin: 12px 0 0; padding: 0; list-style: none; }
+  .examples button { all: unset; cursor: pointer; display: block; font: 400 11px/1.4 var(--mono); color: var(--muted); padding: 5px 0; border-bottom: 1px solid var(--line); width: 100%; }
+  .examples button:hover { color: var(--fg); }
+  .examples button::before { content: "› "; color: var(--dim); }
+  .opt { display: flex; align-items: center; gap: 8px; font: 400 10.5px var(--mono); color: var(--muted); margin-top: 12px; }
+  .opt input { accent-color: var(--fg); margin: 0; }
+
+  .log { list-style: none; margin: 0; padding: 0; font: 400 10.5px/1.5 var(--mono); max-height: 220px; overflow-y: auto; }
+  .log li { display: grid; grid-template-columns: 44px 1fr; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); color: var(--muted); }
+  .log li span { color: var(--dim); }
+
+  .banner { position: fixed; left: 0; right: 0; top: 0; z-index: 40; transform: translateY(-110%); transition: transform .35s cubic-bezier(.2, .8, .2, 1);
+            display: flex; align-items: center; justify-content: center; gap: 18px; padding: 18px 20px; font: 300 26px/1.2 var(--sans); letter-spacing: -0.02em; }
+  .banner.on { transform: none; }
+  .banner.ok { background: #1c2b1e; color: var(--ok); border-bottom: 1px solid var(--ok-line); }
+  .banner.bad { background: #33201b; color: var(--bad); border-bottom: 1px solid var(--bad-line); }
+  .banner small { font: 400 12px var(--mono); color: var(--fg); opacity: .8; }
+
+  dialog { background: var(--panel); color: var(--fg); border: 1px solid var(--line-strong); padding: 0; width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 40px); }
+  dialog::backdrop { background: rgba(0, 0, 0, .6); }
+  dialog form { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  dialog h2 { font: 300 28px/1.1 var(--sans); letter-spacing: -0.02em; margin: 0; }
+  dialog .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); max-height: 260px; overflow-y: auto; }
+  .chips button { all: unset; cursor: pointer; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 8px 10px; font-size: 13px; display: flex; gap: 8px; align-items: center; }
+  .chips button:hover { background: var(--hover); }
+  .chips button b { margin-left: auto; font: 500 11px var(--mono); color: var(--bg); background: var(--fg); padding: 0 5px; }
+  .picked { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+  .picked li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .picked select { background: var(--panel); color: var(--fg); border: 1px solid var(--line-strong); font: 400 11px var(--mono); padding: 3px; }
+  dialog .actions { display: flex; gap: 10px; justify-content: space-between; align-items: center; }
+
+  @media (max-width: 1080px) { .layout { grid-template-columns: 1fr; } aside { position: static; } }
+  @media (max-width: 640px) { .head h1 { font-size: 32px; } .status .dots, .status .meta.opt-hide { display: none; } }
+</style>
+</head>
+<body>
+<div class="banner" id="banner" role="status" aria-live="assertive"></div>
+<div class="wrap">
+  <nav class="top" aria-label="Sections">
+    <a class="on" id="nav-tickets"><span>01</span>Tickets</a>
+    <a id="nav-scan" target="_blank"><span>02</span>Pass camera</a>
+    <a id="nav-print" target="_blank"><span>03</span>Print kit</a>
+    <span class="grow"></span>
+    <a class="right" href="/"><span>◇</span>Handoff</a>
+  </nav>
+  <div class="status">
+    <span class="orb-slot s20" id="status-orb">◇</span>
+    <span class="say" id="say">Loading tickets</span><span class="cursor" aria-hidden="true"></span>
+    <span class="dots" aria-hidden="true">::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::</span>
+    <span class="meta opt-hide" id="clock"></span>
+    <span class="meta"><span class="live" id="live"></span><span id="conn">Connecting</span></span>
+  </div>
+
+  <div class="head">
+    <div>
+      <div class="tag" id="kname">&nbsp;</div>
+      <h1>Tickets</h1>
+      <div class="seg" id="filters" role="group" aria-label="Filter tickets"></div>
+    </div>
+    <div class="ctl">
+      <div class="speed" title="Run cook timers faster for a demo">Timers <div class="seg" id="speed" role="group" aria-label="Timer speed">
+        <button type="button" data-speed="1">1×</button><button type="button" data-speed="10">10×</button><button type="button" data-speed="60">60×</button></div></div>
+      <button class="link" id="reset" type="button">Reset demo</button>
+      <button class="btn" id="add" type="button">+ New order</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <main><div class="rail" id="rail" aria-live="polite"></div></main>
+    <aside>
+      <section class="panel">
+        <h2 class="label"><span>Pass camera</span><span class="camstate"><span class="live" id="camdot"></span><span id="camtext">No camera</span></span></h2>
+        <div class="pair">
+          <img id="qr" alt="QR code that opens the pass camera on a phone">
+          <div><p><b>Scan with your phone</b> and tap Ready to identify. Point it down at where orders get packed.</p>
+            <a class="link" id="open-scan" target="_blank">Or open the camera here</a></div>
+        </div>
+        <p class="pair-note" id="pair-note"></p>
+        <div id="last"></div>
+      </section>
+
+      <section class="panel">
+        <h2 class="label"><span>Voice</span><span><kbd>Space</kbd></span></h2>
+        <div class="mic"><span class="orb-slot s20" id="mic-orb">◇</span><button class="btn" id="mic" type="button">Start listening</button></div>
+        <div class="heard" id="heard"><span class="interim">Say an order number and what to do.</span></div>
+        <form class="cmdbox" id="cmdform"><input id="cmd" placeholder="Or type a command" autocomplete="off"><button type="submit">Run</button></form>
+        <ul class="examples" id="examples"></ul>
+        <label class="opt"><input type="checkbox" id="speak" checked> Read voice replies and timers aloud (plate checks speak on the phone)</label>
+      </section>
+
+      <section class="panel">
+        <h2 class="label"><span>Activity</span></h2>
+        <ul class="log" id="log"></ul>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog" id="orderform">
+    <div class="tag">New ticket</div>
+    <h2>Add an order</h2>
+    <div class="row">
+      <input class="field" id="o-guest" placeholder="Guest name" maxlength="40" required>
+      <select class="field" id="o-source"></select>
+    </div>
+    <input class="field" id="o-courier" placeholder="Courier (optional)" maxlength="30">
+    <div class="chips" id="o-chips"></div>
+    <ul class="picked" id="o-picked"></ul>
+    <div class="actions">
+      <button class="link" type="button" id="o-random">Fill a random order</button>
+      <span style="display:flex; gap:10px"><button class="btn ghost" value="cancel" formnovalidate>Cancel</button><button class="btn" id="o-save" value="save">Add ticket</button></span>
+    </div>
+  </form>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script src="/static/dashboard.js"></script>
+<script type="module" src="/static/orbs.js"></script>
+</body>
+</html>

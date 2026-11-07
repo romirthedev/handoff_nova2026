@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141414">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Handoff · Pass camera</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/base.css">
+<style>
+  body { display: flex; flex-direction: column; min-height: 100dvh; overflow: hidden; }
+  .wrap { max-width: 720px; }
+  nav.top { margin-top: max(12px, env(safe-area-inset-top)); }
+  .status { padding: 10px 0 9px; }
+
+  .stage { position: relative; flex: 1; margin: 14px 0 0; border: 1px solid var(--line-strong); background: #0d0d0d; overflow: hidden; min-height: 240px; }
+  video, .stage img.still { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .corners { position: absolute; inset: 14px; pointer-events: none; }
+  .corners i { position: absolute; width: 22px; height: 22px; border-color: rgba(243, 239, 230, .7); border-style: solid; border-width: 0; }
+  .corners i:nth-child(1) { left: 0; top: 0; border-left-width: 1px; border-top-width: 1px; }
+  .corners i:nth-child(2) { right: 0; top: 0; border-right-width: 1px; border-top-width: 1px; }
+  .corners i:nth-child(3) { left: 0; bottom: 0; border-left-width: 1px; border-bottom-width: 1px; }
+  .corners i:nth-child(4) { right: 0; bottom: 0; border-right-width: 1px; border-bottom-width: 1px; }
+  .stage.armed .corners i { border-color: var(--fg); }
+  .stage.busy .corners { animation: breathe 1.2s ease-in-out infinite; }
+  @keyframes breathe { 50% { inset: 22px; opacity: .6; } }
+  .hud { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+         background: linear-gradient(transparent, rgba(0, 0, 0, .75)); font: 400 11px var(--mono); }
+  .meter { position: absolute; left: 14px; right: 14px; top: 14px; height: 1px; background: rgba(243, 239, 230, .12); }
+  .meter b { display: block; height: 1px; width: 0; background: var(--fg); transition: width .2s; }
+
+  .intro { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; padding: 24px; gap: 14px; background: var(--bg); }
+  .intro h1 { font: 300 38px/1.1 var(--sans); letter-spacing: -0.03em; margin: 0; }
+  .intro p { color: var(--muted); margin: 0 0 8px; font-size: 14px; }
+  .intro ol { margin: 0 0 10px; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+  .intro li { display: grid; grid-template-columns: 30px 1fr; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .intro li span { font: 400 11px var(--mono); color: var(--muted); padding-top: 2px; }
+
+  .result { position: absolute; inset: 0; display: none; flex-direction: column; justify-content: center; padding: 26px 24px; gap: 8px; animation: rise .25s ease both; }
+  .result.on { display: flex; }
+  .result.ok { background: #18281a; }
+  .result.bad { background: #2f1c18; }
+  .result .verdict { font: 500 13px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+  .result.ok .verdict { color: var(--ok); } .result.bad .verdict { color: var(--bad); }
+  .result .name { font: 300 52px/1.02 var(--sans); letter-spacing: -0.035em; }
+  .result .meta { font: 400 12px var(--mono); color: var(--muted); }
+  .result .why { font: 300 24px/1.25 var(--sans); letter-spacing: -0.015em; margin-top: 6px; }
+  .result.ok .why { color: var(--ok); } .result.bad .why { color: var(--bad); }
+  .result ul { list-style: none; margin: 12px 0 0; padding: 0; border-top: 1px solid var(--line); font-size: 16px; }
+  .result li { padding: 8px 0; border-bottom: 1px solid var(--line); display: flex; gap: 10px; }
+  .result li .s { font: 400 12px var(--mono); width: 18px; padding-top: 3px; }
+  .result li.p .s { color: var(--ok); } .result li.m { color: var(--bad); } .result li.x { color: var(--heat); }
+  .result .ring { position: absolute; inset: 0; pointer-events: none; }
+  .result.ok .ring { box-shadow: inset 0 0 0 3px var(--ok); } .result.bad .ring { box-shadow: inset 0 0 0 3px var(--bad); animation: pulse 0.9s ease 3; }
+  @keyframes pulse { 50% { opacity: .2; } }
+
+  .bar { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 12px 0 max(14px, env(safe-area-inset-bottom)); align-items: center; }
+  .bar .btn { padding: 15px 20px; }
+  .tools { display: flex; gap: 14px; flex-wrap: wrap; padding-bottom: 6px; align-items: center; }
+  .tools label { display: flex; gap: 6px; align-items: center; font: 400 10.5px var(--mono); color: var(--muted); text-transform: uppercase; }
+  .tools input[type=checkbox] { accent-color: var(--fg); margin: 0; }
+  #file { display: none; }
+  .live { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); display: inline-block; }
+  .live.on { background: var(--ok); }
+  @media (min-width: 700px) { .result .name { font-size: 64px; } }
+</style>
+</head>
+<body>
+<div class="wrap" style="display:flex; flex-direction:column; flex:1; min-height:0">
+  <nav class="top" aria-label="Sections">
+    <a id="nav-tickets"><span>01</span>Tickets</a>
+    <a class="on"><span>02</span>Pass camera</a>
+    <span class="grow"></span>
+    <a class="right"><span class="live" id="live"></span>&nbsp;<span id="conn">Connecting</span></a>
+  </nav>
+  <div class="status"><span class="orb-slot s20" id="status-orb">◇</span><span class="say" id="say">Pass camera</span><span class="cursor" aria-hidden="true"></span><span class="dots" aria-hidden="true">::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::</span></div>
+
+  <div class="stage" id="stage">
+    <video id="video" playsinline muted autoplay></video>
+    <div class="corners"><i></i><i></i><i></i><i></i></div>
+    <div class="meter"><b id="meter"></b></div>
+    <div class="hud"><span class="orb-slot s20" id="hud-orb"><span class="cursor"></span></span><span id="hud">Camera off</span></div>
+
+    <div class="intro" id="intro">
+      <span class="tag" id="kname">&nbsp;</span>
+      <h1>Pass camera</h1>
+      <p>Checks every order against the tickets before it's bagged.</p>
+      <ol>
+        <li><span>01</span>Prop the phone on a shelf or stand, camera pointing down at the packing spot.</li>
+        <li><span>02</span>Tap Ready with the spot empty, so it learns the background.</li>
+        <li><span>03</span>Slide an order underneath and hold still. It checks on its own.</li>
+      </ol>
+      <button class="btn block" id="arm" type="button">Ready to identify</button>
+    </div>
+
+    <div class="result" id="result"><div class="ring"></div></div>
+  </div>
+
+  <div class="bar">
+    <button class="btn block" id="snap" type="button" disabled>Check now</button>
+    <button class="btn ghost" id="pick" type="button" title="Check a photo from your library">Photo</button>
+  </div>
+  <div class="tools">
+    <label><input type="checkbox" id="auto" checked> Auto-check</label>
+    <label><input type="checkbox" id="voice" checked> Speak result</label>
+    <button class="link" id="rebase" type="button">Relearn empty spot</button>
+    <button class="link" id="flip" type="button">Switch camera</button>
+  </div>
+  <input type="file" id="file" accept="image/*">
+</div>
+<div class="toast" id="toast"></div>
+<script src="/static/scan.js"></script>
+<script type="module" src="/static/orbs.js"></script>
+</body>
+</html>

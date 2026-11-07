@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Handoff</title>
+<meta name="description" content="An AI expo for the front of house: live tickets you run by voice, and a phone camera that checks every order before it leaves.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/base.css">
+<style>
+  .hero { padding: 64px 0 36px; }
+  .hero h1 { font: 300 56px/1.12 var(--sans); letter-spacing: -0.035em; margin: 0 0 16px; }
+  .hero p { color: var(--muted); max-width: 560px; margin: 0 0 32px; }
+  .hero-orb { margin-bottom: 26px; }
+  .meta { font: 400 10.5px var(--mono); color: var(--dim); margin-top: 10px; }
+  section.block { padding: 36px 0 0; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); }
+  .cell { padding: 18px; border-right: 1px solid var(--line); }
+  .cell:last-child { border-right: 0; }
+  .cell .tag { display: block; margin-bottom: 12px; }
+  .cell h3 { font: 400 22px/1.2 var(--sans); letter-spacing: -0.02em; margin: 0 0 10px; }
+  .cell p { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0; }
+  .create { display: grid; grid-template-columns: 1fr auto; gap: 0; border: 1px solid var(--line-strong); background: var(--panel); }
+  .create input.field { border: 0; background: transparent; padding: 14px 16px; }
+  .create .btn { clip-path: none; }
+  .opts { margin-top: 10px; font: 400 10.5px var(--mono); color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .opts input { accent-color: var(--fg); margin: 0; }
+  .steps { border-top: 1px solid var(--line); }
+  .step { display: grid; grid-template-columns: 56px 1fr; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .step .n { font: 400 11px var(--mono); color: var(--muted); padding-top: 3px; }
+  .step b { font-weight: 500; }
+  footer { margin-top: 48px; border-top: 1px solid var(--line-strong); padding: 14px 0 40px; display: flex; justify-content: space-between; gap: 12px; font: 400 10.5px var(--mono); color: var(--dim); }
+  @media (max-width: 640px) {
+    .hero { padding: 36px 0 24px; } .hero h1 { font-size: 38px; }
+    .grid { grid-template-columns: 1fr; } .cell { border-right: 0; border-bottom: 1px solid var(--line); } .cell:last-child { border-bottom: 0; }
+    .create { grid-template-columns: 1fr; } .step { grid-template-columns: 40px 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="top" aria-label="Sections">
+    <a class="on" href="/"><span>00</span>Handoff</a>
+    <a href="/k/demo"><span>01</span>Demo kitchen</a>
+  </nav>
+  <div class="status"><span class="orb-slot s20" id="status-orb">◇</span><span>Handoff · AI expo for the pass</span><span class="cursor" aria-hidden="true"></span><span class="dots" aria-hidden="true">::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::</span></div>
+
+  <section class="hero">
+    <div class="orb-slot s64 hero-orb" id="hero-orb"></div>
+    <h1>Every order checked<br>before it leaves.</h1>
+    <p>Tickets from DoorDash, Uber Eats, the phone and the counter in one place, run by voice. A phone propped over the packing station sees each order, finds whose it is, and flags what's missing before the courier walks out.</p>
+    <a class="btn block" href="/k/demo">Open the demo kitchen</a>
+    <div class="meta">Harbor &amp; Hearth · 25 live tickets · 21-item menu</div>
+  </section>
+
+  <section class="block">
+    <h2 class="label">Or set up your own restaurant</h2>
+    <form class="create" id="create">
+      <input class="field" id="name" placeholder="Restaurant name" maxlength="60" autocomplete="off">
+      <button class="btn" type="submit">Create</button>
+    </form>
+    <label class="opts"><input type="checkbox" id="demo" checked> Start with the 25 sample tickets</label>
+  </section>
+
+  <section class="block">
+    <h2 class="label">What it does</h2>
+    <div class="grid">
+      <div class="cell"><span class="tag">01 · Tickets</span><h3>One rail for every source.</h3><p>Each ticket shows the guest, the platform, the courier and how long it's been waiting. Tap to fire, or just say it.</p></div>
+      <div class="cell"><span class="tag">02 · Voice</span><h3>"Start the timer for order 45 steak."</h3><p>Timers set themselves from the dish and the doneness. Medium-rare ribeye gets 15 minutes. Ask how long is left, mark it ready, send it out.</p></div>
+      <div class="cell"><span class="tag">03 · Pass camera</span><h3>Green means go.</h3><p>Slide the order under the phone. It names the guest, checks every item against the ticket, and flashes red with what's missing or extra.</p></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2 class="label">Set up in a minute</h2>
+    <div class="steps">
+      <div class="step"><span class="n">01</span><div>Open your kitchen on the laptop at the pass. Tickets appear on the rail.</div></div>
+      <div class="step"><span class="n">02</span><div>Scan the QR code on the right of the dashboard with your phone and tap <b>Ready to identify</b>. Set the phone on a shelf or stand, camera facing down at the packing spot.</div></div>
+      <div class="step"><span class="n">03</span><div>Print the <b>food cards</b> from the print kit to demo without a kitchen: lay an order's cards under the camera, leave one out, and watch it catch it.</div></div>
+      <div class="step"><span class="n">04</span><div>Turn on the mic and talk to the rail. <kbd>Space</kbd> also toggles listening.</div></div>
+    </div>
+  </section>
+
+  <footer><span>◇ Handoff</span><a href="/k/demo">Open the demo kitchen →</a></footer>
+</div>
+<script>
+  document.getElementById("create").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("name").value.trim();
+    if (!name) return document.getElementById("name").focus();
+    const r = await fetch("/api/kitchens", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, demo: document.getElementById("demo").checked }) });
+    const j = await r.json();
+    if (r.ok) location.href = "/k/" + j.id;
+  });
+  addEventListener("orbs-ready", () => {
+    HOrbs.mount(document.getElementById("status-orb"), "breathing", 20);
+    HOrbs.mount(document.getElementById("hero-orb"), "weaving", 64);
+  });
+</script>
+<script type="module" src="/static/orbs.js"></script>
+</body>
+</html>
