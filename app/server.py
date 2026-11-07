@@ -18,6 +18,15 @@ from . import core, vision
 from .menu import BY_ID, MENU, SOURCES
 
 STATIC = Path(__file__).parent / "static"
+
+
+class FreshStatic(StaticFiles):
+    """Browsers revalidate scripts and styles on every load (a cheap 304), so a redeploy is never hidden by cache."""
+
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
 DEMO_ID = "demo"
 
 
@@ -134,7 +143,7 @@ def build_app() -> FastAPI:
         hub.store.save(hub.kitchens)
 
     app = FastAPI(lifespan=lifespan, title="Handoff")
-    app.mount("/static", StaticFiles(directory=STATIC), name="static")
+    app.mount("/static", FreshStatic(directory=STATIC), name="static")
     page = lambda name: FileResponse(STATIC / name, headers={"Cache-Control": "no-cache"})  # noqa: E731
 
     @app.get("/")

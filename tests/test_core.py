@@ -191,3 +191,26 @@ def test_what_to_start_next():
         assert r["order"] == 41 and "is next" in r["say"] and "late" in r["say"]
     run(k, "fire order 41")
     assert run(k, "what should we cook next")["order"] == 42
+
+
+def test_show_changes_the_view_not_the_orders():
+    k = kitchen()
+    run(k, "fire order 41")
+    run(k, "fire order 45")
+    view = lambda text: core.run_commands(k, core.parse_commands(text, k))
+    r = view("Can you show me just all of the tickets that are cooking right now")
+    assert r["view"]["status"] == "cooking" and "Showing 2 cooking orders" in r["say"]
+    assert [o["status"] for o in k["orders"].values()].count("cooking") == 2  # nothing changed
+    r = view("show me all the orders with cheeseburgers")
+    assert r["view"]["items"] == ["burger"] and r["view"]["status"] is None and "Showing 3 open orders with smash burger" in r["say"]
+    r = view("which tickets have garlic bread")
+    assert r["view"]["items"] == ["bread"]
+    r = view("only show doordash orders that are new")
+    assert r["view"]["source"] == "DoorDash" and r["view"]["status"] == "new"
+    r = view("show me the late orders")
+    assert r["view"]["late"] and r["results"][0]["count"] >= 1
+    r = view("show everything")
+    assert r["view"] == {"status": None, "items": [], "source": None, "late": False} and "Showing all 25 open orders" in r["say"]
+    assert core.parse_command("show order 45", k)["intent"] == "show"
+    assert core.parse_command("what should I start next", k)["intent"] == "next"
+    assert core.parse_command("which order should we cook next", k)["intent"] == "next"

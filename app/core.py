@@ -342,6 +342,16 @@ _INTENTS = [  # earlier wins when one order hears several
 _RANK = {name: i for i, (name, _) in enumerate(_INTENTS)}
 _LATER = r"\b(push(ed|ing)?|back|delay(ed)?|late|later)\b"
 _SOONER = r"\b(sooner|earlier|up by|move\w* (\w+ ){0,3}up)\b"
+# "show me the orders that are cooking" / "which tickets have burgers" change what the rail shows, not the orders
+_VIEW_VERB = r"\b(show|only|filter|display|list|see|view|pull up|find|which|what (orders|tickets))\b"
+_ACTING = r"\b(fire|timers?|stop|add|push|delay|move|mark|reopen)\b"
+_VIEW_STATUS = [("cooking", r"cooking|on the (fire|grill)|in progress|firing"), ("ready", r"ready|done|finished|plated"),
+                ("issue", r"issues?|problems?|wrong|missing|flagged"), ("verified", r"checked|verified|good to go|passed"),
+                ("out", r"picked up|handed off|out the door|gone|delivered|cancell?ed|closed"),
+                ("new", r"new|not started|waiting|to start|needs? to (start|be started)|haven'?t started")]
+_VIEW_SOURCES = {"DoorDash": r"door ?dash", "Uber Eats": r"uber( eats)?", "Grubhub": r"grub ?hub", "Phone": r"phone",
+                 "Website": r"website|online", "Walk-in": r"walk ?in|counter"}
+_VIEW_LATE = r"\b(late|behind|overdue)\b"
 _ALL = r"\b(all|every|each|any|everything)\b"
 _BULK = ("start", "stop", "add", "ready", "query")  # safe to run across the rail; cancel and hand-off need a number
 _WAITING = ("new", "cooking", "ready", "issue")
@@ -406,7 +416,7 @@ def parse_commands(text: str, k) -> list[dict]:
         slots[pick(m.start(), m.end())]["minutes"] = mins
     taken = []
     for alias, mid in _ALIASES:
-        for m in re.finditer(rf"\b{re.escape(alias)}\b", t):
+        for m in re.finditer(rf"\b{re.escape(alias)}(?:e?s)?\b", t):  # "cheeseburgers", "garlic breads"
             if any(a < m.end() and m.start() < b for a, b in taken):
                 continue
             taken.append((m.start(), m.end()))
@@ -434,9 +444,53 @@ def parse_commands(text: str, k) -> list[dict]:
         prev = intent or prev
         cmds.append({"intent": intent, "order": refs[i][2] if refs else None, "item": items[0] if items else None,
                      "items": items, "minutes": slot["minutes"], "shift": slot["shift"], "text": text})
+    if not refs and re.search(_VIEW_VERB, t) and not re.search(_ACTING, t) and not slots[0]["intents"] & {"next", "eta"}:
+        items = list(dict.fromkeys(mid for _, mid in sorted(slots[0]["items"])))
+        return [{"intent": "view", "order": None, "item": None, "items": [], "minutes": None, "text": text,
+                 "view": _parse_view(t, items)}]
     if not refs and re.search(_ALL, t):
         return _for_every_order(cmds[0], k)
     return cmds
+
+
+def _parse_view(t, items) -> dict:
+    status = next((s for s, rx in _VIEW_STATUS if re.search(rf"\b({rx})\b", t)), None)
+    source = next((s for s, rx in _VIEW_SOURCES.items() if re.search(rf"\b({rx})\b", t)), None)
+    return {"status": status, "items": items, "source": source, "late": bool(re.search(_VIEW_LATE, t))}
+
+
+def is_late(o, t=None) -> bool:
+    """Should have been started a minute ago, or its pickup time has passed."""
+    t = t or now_ms()
+    if o["status"] in ("picked_up", "cancelled"):
+        return False
+    return (o["status"] == "new" and o.get("start_at", t) < t - 60_000) or o.get("pickup_at", t) < t
+
+
+def in_view(o, v, t=None) -> bool:
+    """The dashboard applies the same rules (inView in dashboard.js) so the rail stays filtered as tickets change."""
+    st, closed = v.get("status") or "open", o["status"] in ("picked_up", "cancelled")
+    if (st == "open" and closed) or (st == "out" and not closed) or (st not in ("open", "out") and o["status"] != st):
+        return False
+    if v.get("items") and not any(it["menu"] in v["items"] for it in o["items"]):
+        return False
+    if v.get("source") and o["source"] != v["source"]:
+        return False
+    return not v.get("late") or is_late(o, t)
+
+
+_VIEW_WORD = {"cooking": "cooking", "new": "new", "ready": "ready", "issue": "flagged", "verified": "checked", "out": "closed"}
+
+
+def view_say(v, n) -> str:
+    if not (v.get("status") or v.get("items") or v.get("source") or v.get("late")):
+        return f"Showing all {plural(n, 'open order')}."
+    desc = ("late " if v.get("late") else "") + _VIEW_WORD.get(v.get("status"), "open") + " order"
+    tail = (" with " + " or ".join(BY_ID[m]["name"].lower() for m in v["items"]) if v.get("items") else "") \
+        + (f" from {v['source']}" if v.get("source") else "")
+    if not n:
+        return f"No {desc}s{tail} right now. Say \"show everything\" to see the whole rail."
+    return f"Showing {n} {desc}{'s' * (n != 1)}{tail}."
 
 
 def _for_every_order(cmd, k) -> list[dict]:
@@ -468,13 +522,16 @@ def run_commands(k, cmds) -> dict:
         for mid in dict.fromkeys(items):  # "fire 45 steak and lobster" runs once per dish
             results.append(run_command(k, {**c, "item": mid}))
     ok = [r for r in results if r["ok"]]
-    return {"ok": bool(ok), "say": " ".join(r["say"] for r in results),
-            "order": (ok or results)[-1].get("order"), "results": results}
+    return {"ok": bool(ok), "say": " ".join(r["say"] for r in results), "order": (ok or results)[-1].get("order"),
+            "view": next((r["view"] for r in results if "view" in r), None), "results": results}
 
 
 def run_command(k, cmd) -> dict:
     """Apply a parsed command. Returns {ok, say, order} where say is read aloud at the pass."""
     intent, num, mid, minutes = cmd["intent"], cmd["order"], cmd["item"], cmd["minutes"]
+    if intent == "view":
+        n = sum(in_view(o, cmd["view"]) for o in k["orders"].values())
+        return {"ok": True, "view": cmd["view"], "count": n, "say": view_say(cmd["view"], n)}
     if intent == "next":
         to_start = sorted((o for o in k["orders"].values() if o["status"] == "new" and o.get("start_at")),
                           key=lambda o: o["start_at"])

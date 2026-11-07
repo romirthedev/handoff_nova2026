@@ -6,11 +6,13 @@ const STATUS = { new: "New", cooking: "Cooking", ready: "Ready", issue: "Issue",
 const FILTERS = [["open", "Open"], ["new", "New"], ["cooking", "Cooking"], ["ready", "Ready"], ["issue", "Issue"], ["verified", "Checked"], ["out", "Out"]];
 const isOpen = (o) => o.status !== "picked_up" && o.status !== "cancelled";
 const inFilter = (o, f) => (f === "open" ? isOpen(o) : f === "out" ? !isOpen(o) : o.status === f);
-const EXAMPLES = ["Start the timer for order 45 steak", "What should I start next?", "Dasher for order 45 is 10 minutes away",
+const EXAMPLES = ["Start the timer for order 45 steak", "Show me all the orders that are cooking", "Show orders with burgers",
+                  "Show everything", "What should I start next?", "Dasher for order 45 is 10 minutes away",
                   "Push order 50 back 10 minutes", "For all orders with garlic bread start the garlic bread timer",
                   "How long on order 45?", "Order 45 picked up"];
 
 let state = null, menu = {}, sources = [], offset = 0, filter = "open", focusNum = null;
+let view = null;               // set by voice ("show orders with burgers"): dishes, app, late; status goes in filter
 const flashes = {};            // order num -> {cls, until}
 const freshUp = {};            // item uid -> until (pulse the UP badge)
 const seen = new Set();        // tickets already on screen, so only new ones animate in
@@ -75,6 +77,22 @@ function itemRow(o, it, missing) {
     <span class="n">${esc(m.name)}${mod}</span>${timer}<span class="bar"></span></li>`;
 }
 
+// same rules as in_view / is_late in core.py
+const isLate = (o) => isOpen(o) && ((o.status === "new" && o.start_at < now() - 60000) || o.pickup_at < now());
+function inView(o) {
+  if (!view) return true;
+  if (view.items && view.items.length && !o.items.some((it) => view.items.includes(it.menu))) return false;
+  if (view.source && o.source !== view.source) return false;
+  return !view.late || isLate(o);
+}
+function viewLabel() {
+  const bits = [];
+  if (view.late) bits.push("late");
+  if (view.items && view.items.length) bits.push("with " + view.items.map((m) => (menu[m] || { name: m }).name).join(" or "));
+  if (view.source) bits.push("from " + view.source);
+  return bits.join(" · ");
+}
+
 // when to start an order so it's packed as its Dasher walks in: pickup time minus the slowest dish minus packing
 function planHTML(o) {
   if (!o.pickup_at || !isOpen(o)) return "";
@@ -126,11 +144,12 @@ function render() {
   const k = state.kitchen, orders = Object.values(k.orders).sort((a, b) => a.placed - b.placed);
   document.title = `${k.name} · Handoff`;
   $("kname").textContent = k.name;
-  const count = (f) => orders.filter((o) => inFilter(o, f)).length;
+  const count = (f) => orders.filter((o) => inFilter(o, f) && inView(o)).length;
   $("filters").innerHTML = FILTERS.map(([f, label]) => `<button type="button" data-f="${f}" aria-pressed="${f === filter}">${label}<b>${count(f)}</b></button>`).join("");
-  const shown = orders.filter((o) => inFilter(o, filter));
+  const shown = orders.filter((o) => inFilter(o, filter) && inView(o));
   $("rail").innerHTML = shown.length ? shown.map(ticketHTML).join("") :
-    `<div class="empty">${filter === "open" ? "No open tickets. Add one with + New order." : "Nothing here right now."}</div>`;
+    `<div class="empty">${view ? "No tickets match. Say “show everything” to see the whole rail." : filter === "open" ? "No open tickets. Add one with + New order." : "Nothing here right now."}</div>`;
+  $("viewchip").innerHTML = view ? `<span>Only ${esc(viewLabel())}</span><button type="button" id="clearview">Show all ×</button>` : "";
   const next = orders.filter((o) => o.status === "new" && o.start_at).sort((a, b) => a.start_at - b.start_at).slice(0, 4);
   $("queue").innerHTML = next.length ? next.map((o) => {
     const slow = o.items.reduce((a, it) => ((it.minutes || 0) > (a.minutes || 0) ? it : a), o.items[0]);
@@ -189,7 +208,8 @@ setInterval(tickClock, 250);
 
 function flash(num, ok) {
   flashes[num] = { cls: ok ? "flash-ok" : "flash-bad", until: Date.now() + 3400 };
-  if (state && state.kitchen.orders[num] && !inFilter(state.kitchen.orders[num], filter)) filter = "open";
+  const o = state && state.kitchen.orders[num];
+  if (o && !(inFilter(o, filter) && inView(o))) { filter = "open"; view = null; }
   render();
   const el = $("t-" + num);
   if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -230,7 +250,12 @@ async function runCommand(text, spoken) {
     $("heard").innerHTML = `“${esc(text)}”<span class="reply${r.ok ? "" : " no"}">${esc(r.say)}</span>`;
     say(r.say);
     speak(r.say);
-    if (r.order) focusTicket(r.order);
+    if (r.view) {  // "show me the cooking orders": filter the rail, nothing on the tickets changes
+      const v = r.view;
+      filter = v.status || "open";
+      view = (v.items && v.items.length) || v.source || v.late ? v : null;
+      render(); window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (r.order) focusTicket(r.order);
   } catch (e) { toast(e.message, true); }
 }
 
@@ -331,6 +356,7 @@ $("rail").addEventListener("click", async (e) => {
   } catch (err) { toast(err.message, true); }
 });
 $("queue").addEventListener("click", (e) => { const b = e.target.closest("button[data-num]"); if (b) focusTicket(+b.dataset.num); });
+$("viewchip").addEventListener("click", (e) => { if (e.target.closest("#clearview")) { view = null; filter = "open"; render(); } });
 $("filters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { filter = b.dataset.f; render(); } });
 $("speed").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) post("/settings", { speed: +b.dataset.speed }); });
 $("reset").addEventListener("click", async () => { if (confirm("Put all 25 demo tickets back to new?")) { await post("/reset"); toast("Demo tickets reset"); } });

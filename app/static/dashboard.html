@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/base.css">
+<link rel="stylesheet" href="/static/base.css?v=3">
 <style>
   body { display: flex; flex-direction: column; }
   .wrap { max-width: 1560px; padding: 0 20px; }
@@ -54,6 +54,10 @@
   .s-verified .pill { color: var(--ok); border-color: var(--ok-line); }
   .ticket h3 { font: 300 23px/1.2 var(--sans); letter-spacing: -0.02em; margin: 8px 0 0; }
   .ticket .sub { font: 400 10.5px var(--mono); color: var(--dim); margin-bottom: 8px; }
+  .viewchip:empty { display: none; }
+  .viewchip { display: inline-flex; align-items: center; gap: 12px; margin-top: 10px; padding: 6px 6px 6px 12px; border: 1px solid var(--heat);
+              background: var(--heat-bg); font: 400 11px var(--mono); color: var(--heat); animation: rise .25s ease both; }
+  .viewchip button { all: unset; cursor: pointer; font: 400 10px var(--mono); text-transform: uppercase; color: var(--bg); background: var(--heat); padding: 3px 8px; }
   .plan { display: flex; align-items: center; gap: 8px; font: 400 10.5px var(--mono); color: var(--muted); margin: -4px 0 8px; min-height: 18px; }
   .plan .go:empty { display: none; }
   .plan .go, .plan .eta { white-space: nowrap; }
@@ -191,6 +195,7 @@
       <div class="tag" id="kname">&nbsp;</div>
       <h1>Tickets</h1>
       <div class="seg" id="filters" role="group" aria-label="Filter tickets"></div>
+      <div class="viewchip" id="viewchip" aria-live="polite"></div>
     </div>
     <div class="ctl">
       <div class="speed" title="Run cook timers faster for a demo">Timers <div class="seg" id="speed" role="group" aria-label="Timer speed">
@@ -260,7 +265,7 @@
 </dialog>
 <div class="toast" id="toast"></div>
 
-<script src="/static/dashboard.js"></script>
-<script type="module" src="/static/orbs.js"></script>
+<script src="/static/dashboard.js?v=3"></script>
+<script type="module" src="/static/orbs.js?v=3"></script>
 </body>
 </html>
