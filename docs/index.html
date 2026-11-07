@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Handoff pitch · Romir Patel</title>
+<meta name="description" content="Handoff: an AI expo for the pass. Live tickets you run by voice, and a phone that checks every bag before the courier walks out.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+*{margin:0;box-sizing:border-box}
+html,body{height:100%;background:#0d0d0d;color:#f3efe6;overflow:hidden;font-family:'Inter Tight',Arial,sans-serif}
+#stage{position:fixed;inset:0 0 56px 0;overflow:hidden}
+#deck{width:1920px;height:1080px;position:absolute;left:50%;top:50%;transform-origin:center center}
+#deck section{position:absolute;inset:0;width:1920px;height:1080px;overflow:hidden;opacity:0;visibility:hidden;transition:opacity .35s ease,visibility 0s .35s}
+#deck section.on{opacity:1;visibility:visible;transition:opacity .35s ease}
+nav{position:fixed;left:0;right:0;bottom:0;height:56px;display:flex;align-items:center;justify-content:center;gap:12px;padding:0 16px;
+  font-family:'JetBrains Mono','Courier New',monospace;font-size:13px;color:#aaa69e;border-top:1px solid rgba(243,239,230,.1)}
+nav button,nav a{background:none;border:1px solid rgba(243,239,230,.2);color:#f3efe6;font:inherit;padding:7px 14px;cursor:pointer;text-decoration:none}
+nav button:hover,nav a:hover{border-color:#e9c27f;color:#e9c27f}
+nav .count{min-width:64px;text-align:center}
+nav .spacer{flex:1;max-width:120px}
+@media (max-width:600px){nav{gap:8px}nav .spacer{display:none}nav button,nav a{padding:7px 10px}#full{display:none}}
+@media print{nav{display:none}}
+</style></head><body>
+<div id="stage"><div id="deck">
+<section id="cover" data-transition="fade" style="background:#141414;color:#f3efe6;font-family:'Inter Tight', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:center;gap:40px">
+<div style="position:absolute;left:128px;right:128px;top:96px;display:flex;flex-direction:row;align-items:center;gap:24px;border-bottom:1px solid rgba(243,239,230,0.28);padding:0 0 20px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#f3efe6;white-space:nowrap">◇ Handoff · AI expo for the pass ▌</p>
+<p style="flex:1;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#6f6c66;white-space:nowrap">::::::::::::::::::::::::::::::::::::::::::::::::</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#a3d9a5;white-space:nowrap">● Live</p>
+</div>
+<h1 style="font-size:120px;font-weight:300;letter-spacing:-4px;line-height:1.08">Every order checked<br>before it leaves.</h1>
+<p style="font-size:36px;line-height:1.45;color:#aaa69e;width:1180px">Live tickets you run by voice, and a phone over the packing spot that checks every bag before the courier walks out.</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e;text-transform:uppercase;letter-spacing:1px">DoorDash hackathon · Front of house at peak · Romir Patel</p>
+
+</section>
+
+<section id="story" data-transition="fade" style="background:#141414;color:#f3efe6;font-family:'Inter Tight', Arial, sans-serif;padding:128px 128px 160px;display:grid;grid-template-columns:760px 1fr;gap:80px;align-items:center">
+<div style="position:relative;width:760px;height:570px">
+<img src="chipotle.webp" alt="The Chipotle order: three soft flour tortilla tacos with chicken, rice and black beans, and a kids meal tray with a quesadilla, rice, beans and chips, next to the paper bag. No drink." style="width:760px;height:570px;object-fit:cover;border:1px solid rgba(243,239,230,0.28)">
+<p style="position:absolute;left:24px;top:500px;width:420px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#141414;background:#ef9580;padding:8px 14px;white-space:nowrap">× Soft shell · ordered hard</p>
+<p style="position:absolute;left:470px;top:410px;width:266px;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#141414;background:#ef9580;padding:8px 14px;white-space:nowrap">× No kids drink</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:48px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e;text-transform:uppercase;letter-spacing:1px">Yesterday · Chipotle on DoorDash</p>
+<h2 style="font-size:72px;font-weight:300;letter-spacing:-2px;line-height:1.1">Two mistakes in one bag.</h2>
+</div>
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:24px;border-top:1px solid rgba(243,239,230,0.13);padding:32px 0">
+<div style="display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Ordered: hard shell tacos</p>
+<p style="font-size:44px;font-weight:300;letter-spacing:-1px;color:#ef9580">Got soft shell.</p>
+</div>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#141414;background:#a3d9a5;padding:10px 18px;white-space:nowrap">Would’ve been caught</p>
+</div>
+<div style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:24px;border-top:1px solid rgba(243,239,230,0.13);border-bottom:1px solid rgba(243,239,230,0.13);padding:32px 0">
+<div style="display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Ordered: kids meal</p>
+<p style="font-size:44px;font-weight:300;letter-spacing:-1px;color:#ef9580">No drink in the bag.</p>
+</div>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#141414;background:#a3d9a5;padding:10px 18px;white-space:nowrap">Would’ve been caught</p>
+</div>
+</div>
+<p style="font-size:32px;line-height:1.45;color:#aaa69e">By the time I opened the bag, the courier was long gone. A ten-second look at the counter would have fixed both.</p>
+</div>
+<div style="position:absolute;left:128px;right:128px;bottom:64px;display:flex;flex-direction:row;justify-content:space-between;border-top:1px solid rgba(243,239,230,0.13);padding:16px 0 0">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Handoff · AI expo for the pass</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">02</p>
+</div>
+
+</section>
+
+<section id="caught" data-transition="fade" style="background:#1a1a1a;color:#f3efe6;font-family:'Inter Tight', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:48px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e;text-transform:uppercase;letter-spacing:1px">What the pass camera would have said</p>
+<h2 style="font-size:72px;font-weight:300;letter-spacing:-2px;line-height:1.1">Caught at the counter, not at home.</h2>
+</div>
+<div style="display:grid;grid-template-columns:960px 1fr;gap:80px;align-items:center">
+<div style="display:flex;flex-direction:column;gap:20px;background:#2a1d1a;border:1px solid #9a5f52;padding:48px">
+<p style="font-size:64px;font-weight:300;letter-spacing:-2px;line-height:1.1;color:#ef9580">× Wrong and missing items</p>
+<p style="font-size:32px;color:#f3efe6">Your order · Chipotle · DoorDash</p>
+<div style="display:flex;flex-direction:column;gap:12px;border-top:1px solid rgba(243,239,230,0.13);padding:24px 0 0">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#a3d9a5">ok · Kids meal</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#ef9580">wrong · Tacos are soft shell, ticket says hard</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#ef9580">missing · Kids meal drink</p>
+</div>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Read from the photo · flagged before pickup</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:36px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#e9c27f">01</p>
+<p style="font-size:32px;line-height:1.4;color:#f3efe6">The phone over the packing spot sees the bag settle.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#e9c27f">02</p>
+<p style="font-size:32px;line-height:1.4;color:#f3efe6">It matches every item to the ticket.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#e9c27f">03</p>
+<p style="font-size:32px;line-height:1.4;color:#f3efe6">It says what’s wrong, out loud, while the bag is still on the counter.</p>
+</div>
+</div>
+</div>
+<div style="position:absolute;left:128px;right:128px;bottom:64px;display:flex;flex-direction:row;justify-content:space-between;border-top:1px solid rgba(243,239,230,0.13);padding:16px 0 0">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Handoff · AI expo for the pass</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">03</p>
+</div>
+
+</section>
+
+<section id="problem" data-transition="fade" style="background:#141414;color:#f3efe6;font-family:'Inter Tight', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:56px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e;text-transform:uppercase;letter-spacing:1px">The problem · DoorDash’s two challenges</p>
+<h2 style="font-size:72px;font-weight:300;letter-spacing:-2px;line-height:1.1">Timing and packing break at peak.</h2>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid rgba(243,239,230,0.13)">
+<div style="display:flex;flex-direction:column;gap:20px;padding:48px;border-right:1px solid rgba(243,239,230,0.13)">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#e9c27f;text-transform:uppercase">01 · Prep timing</p>
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">When should this order start cooking?</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">Orders arrive from different apps with different timing, and pickup times move. Start too early and food sits; too late and the Dasher waits.</p>
+<p style="font-size:28px;line-height:1.5;color:#f3efe6;font-style:italic;border-top:1px solid rgba(243,239,230,0.13);padding:20px 0 0">How can AI help coordinate prep and timing?</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px;padding:48px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#ef9580;text-transform:uppercase">02 · Packing &amp; pickup</p>
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">Is this bag right, and is it theirs?</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">Cooked isn’t done. Everything has to be packed right and handed to the right person, and every fix steals time from the next order.</p>
+<p style="font-size:28px;line-height:1.5;color:#f3efe6;font-style:italic;border-top:1px solid rgba(243,239,230,0.13);padding:20px 0 0">How can AI make pickup more reliable, with less work for staff?</p>
+</div>
+</div>
+<div style="position:absolute;left:128px;right:128px;bottom:64px;display:flex;flex-direction:row;justify-content:space-between;border-top:1px solid rgba(243,239,230,0.13);padding:16px 0 0">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Handoff · AI expo for the pass</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">04</p>
+</div>
+
+</section>
+
+<section id="solution" data-transition="fade" style="background:#141414;color:#f3efe6;font-family:'Inter Tight', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:56px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e;text-transform:uppercase;letter-spacing:1px">Our solution</p>
+<h2 style="font-size:72px;font-weight:300;letter-spacing:-2px;line-height:1.1">Handoff: an AI expo for the pass.</h2>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid rgba(243,239,230,0.13)">
+<div style="display:flex;flex-direction:column;gap:20px;padding:48px;border-right:1px solid rgba(243,239,230,0.13)">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e;text-transform:uppercase">01 · Tickets</p>
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">Start each order on time.</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">Every app on one rail. Each ticket counts down to its start time, worked back from when the Dasher arrives.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px;padding:48px;border-right:1px solid rgba(243,239,230,0.13)">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e;text-transform:uppercase">02 · Voice</p>
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">“Start the timer for order 45 steak.”</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">Timers set themselves from the dish and the doneness. Ring in orders and ask “what’s late?” hands-free.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px;padding:48px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e;text-transform:uppercase">03 · Pass camera</p>
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">Green means go.</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">A phone over the packing spot names the guest, checks every item, and flags what’s missing or extra.</p>
+</div>
+</div>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#e9c27f;text-transform:uppercase;letter-spacing:1px">Tickets + voice timers → 01 prep timing · Pass camera → 02 packing &amp; pickup</p>
+<div style="position:absolute;left:128px;right:128px;bottom:64px;display:flex;flex-direction:row;justify-content:space-between;border-top:1px solid rgba(243,239,230,0.13);padding:16px 0 0">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Handoff · AI expo for the pass</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">05</p>
+</div>
+
+</section>
+
+<section id="product" data-transition="fade" style="background:#1a1a1a;color:#f3efe6;font-family:'Inter Tight', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e;text-transform:uppercase;letter-spacing:1px">Built and running</p>
+<h2 style="font-size:72px;font-weight:300;letter-spacing:-2px;line-height:1.1">What the pass sees.</h2>
+</div>
+<div style="display:flex;flex-direction:row;gap:64px;align-items:center">
+<img src="dashboard.png" alt="Handoff dashboard: live tickets each showing when to start and when the Dasher arrives, a Start next queue, order 45 flagged red for a missing lobster tail, and the pass camera result card" style="width:1000px;height:625px;object-fit:contain;border:1px solid rgba(243,239,230,0.28)">
+<div style="flex:1;display:flex;flex-direction:column;gap:28px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#e9c27f">01 · Start next</p>
+<p style="font-size:30px;line-height:1.4">Every ticket says when to start, worked back from its Dasher’s arrival.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#e9c27f">02 · Voice</p>
+<p style="font-size:30px;line-height:1.4">Timers, new orders and “what’s late?”, all by voice.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#ef9580">03 · Issue</p>
+<p style="font-size:30px;line-height:1.4">Order 45 turns red: the lobster tail isn’t in the bag.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#a3d9a5">04 · Pass camera</p>
+<p style="font-size:30px;line-height:1.4">The phone’s answer, read from the photo in under 4 seconds.</p>
+</div>
+</div>
+</div>
+<div style="position:absolute;left:128px;right:128px;bottom:64px;display:flex;flex-direction:row;justify-content:space-between;border-top:1px solid rgba(243,239,230,0.13);padding:16px 0 0">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Handoff · AI expo for the pass</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">06</p>
+</div>
+
+</section>
+
+<section id="flow" data-transition="fade" style="background:#141414;color:#f3efe6;font-family:'Inter Tight', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:56px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e;text-transform:uppercase;letter-spacing:1px">How it runs</p>
+<h2 style="font-size:72px;font-weight:300;letter-spacing:-2px;line-height:1.1">One order, start to finish.</h2>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border:1px solid rgba(243,239,230,0.13)">
+<div style="display:flex;flex-direction:column;gap:20px;padding:40px;border-right:1px solid rgba(243,239,230,0.13)">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">01</p>
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">Ticket lands</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">#45 · DoorDash. Dasher in 21 min, steak takes 15: <span style="color:#e9c27f">start in 4</span>.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px;padding:40px;border-right:1px solid rgba(243,239,230,0.13)">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">02</p>
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">Say it</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">“Start the timer for order 45 steak.” Medium rare: <span style="color:#e9c27f">15:00</span>.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px;padding:40px;border-right:1px solid rgba(243,239,230,0.13)">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">03</p>
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">Bag it</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">Slide it under the phone. It checks when the bag settles. No buttons.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px;padding:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">04</p>
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">Phone answers</h3>
+<p style="font-size:28px;line-height:1.5;color:#a3d9a5">Go: “Good to go, John.”</p>
+<p style="font-size:28px;line-height:1.5;color:#ef9580">Hold: “Missing lobster tail.”</p>
+</div>
+</div>
+<p style="font-size:32px;line-height:1.45;color:#aaa69e;width:1400px">The answer is spoken from the phone at the pass, so the packer hears it without looking up.</p>
+<div style="position:absolute;left:128px;right:128px;bottom:64px;display:flex;flex-direction:row;justify-content:space-between;border-top:1px solid rgba(243,239,230,0.13);padding:16px 0 0">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Handoff · AI expo for the pass</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">07</p>
+</div>
+
+</section>
+
+<section id="ai" data-transition="fade" style="background:#1a1a1a;color:#f3efe6;font-family:'Inter Tight', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e;text-transform:uppercase;letter-spacing:1px">How it uses AI</p>
+<h2 style="font-size:72px;font-weight:300;letter-spacing:-2px;line-height:1.1">Vision reads the bag. Code makes the call.</h2>
+</div>
+<div style="display:flex;flex-direction:row;gap:12px;align-items:stretch">
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;padding:28px;border:1px solid rgba(243,239,230,0.13);background:#141414">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Phone camera</p>
+<h3 style="font-size:32px;font-weight:400;line-height:1.2">Snaps the bag</h3>
+<p style="font-size:24px;line-height:1.4;color:#aaa69e">When motion stops. Nobody taps.</p>
+</div>
+<p style="width:40px;align-self:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;color:#aaa69e;text-align:center">→</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;padding:28px;border:1px solid #e9c27f;background:#141414">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#e9c27f">Claude Sonnet 5.5</p>
+<h3 style="font-size:32px;font-weight:400;line-height:1.2">Names every dish</h3>
+<p style="font-size:24px;line-height:1.4;color:#aaa69e">Answers only in menu ids and counts.</p>
+</div>
+<p style="width:40px;align-self:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;color:#aaa69e;text-align:center">→</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;padding:28px;border:1px solid rgba(243,239,230,0.13);background:#141414">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Matcher · code</p>
+<h3 style="font-size:32px;font-weight:400;line-height:1.2">Finds the ticket</h3>
+<p style="font-size:24px;line-height:1.4;color:#aaa69e">Scores every open order on overlap, missing, extra.</p>
+</div>
+<p style="width:40px;align-self:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;color:#aaa69e;text-align:center">→</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;padding:28px;border:1px solid rgba(243,239,230,0.13);background:#141414">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Verdict</p>
+<h3 style="font-size:32px;font-weight:400;line-height:1.2">Go or hold</h3>
+<p style="font-size:24px;line-height:1.4;color:#aaa69e">Green with the guest’s name, or red with what’s wrong.</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:row;gap:12px;align-items:stretch">
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;padding:28px;border:1px solid rgba(243,239,230,0.13);background:#141414">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Browser speech</p>
+<h3 style="font-size:32px;font-weight:400;line-height:1.2">Hears the cook</h3>
+<p style="font-size:24px;line-height:1.4;color:#aaa69e">Always listening, hands-free.</p>
+</div>
+<p style="width:40px;align-self:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;color:#aaa69e;text-align:center">→</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;padding:28px;border:1px solid rgba(243,239,230,0.13);background:#141414">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Parser · code</p>
+<h3 style="font-size:32px;font-weight:400;line-height:1.2">Splits it by order</h3>
+<p style="font-size:24px;line-height:1.4;color:#aaa69e">Orders, tables, dishes, doneness, questions.</p>
+</div>
+<p style="width:40px;align-self:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;color:#aaa69e;text-align:center">→</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;padding:28px;border:1px solid rgba(243,239,230,0.13);background:#141414">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Timers</p>
+<h3 style="font-size:32px;font-weight:400;line-height:1.2">Sets the right time</h3>
+<p style="font-size:24px;line-height:1.4;color:#aaa69e">From dish and doneness: rare 12, medium 17.</p>
+</div>
+<p style="width:40px;align-self:center;font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;color:#1a1a1a;text-align:center">→</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:10px;padding:28px;border:2px dashed #e9c27f;background:#141414">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#e9c27f">Next · Gemma</p>
+<h3 style="font-size:32px;font-weight:400;line-height:1.2">Go/hold on the phone</h3>
+<p style="font-size:24px;line-height:1.4;color:#aaa69e">Planned: post-trained on our checks, runs offline.</p>
+</div>
+</div>
+<div style="position:absolute;left:128px;right:128px;bottom:64px;display:flex;flex-direction:row;justify-content:space-between;border-top:1px solid rgba(243,239,230,0.13);padding:16px 0 0">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Handoff · AI expo for the pass</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">08</p>
+</div>
+
+</section>
+
+<section id="why" data-transition="fade" style="background:#141414;color:#f3efe6;font-family:'Inter Tight', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:56px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e;text-transform:uppercase;letter-spacing:1px">Why it works</p>
+<h2 style="font-size:72px;font-weight:300;letter-spacing:-2px;line-height:1.1">Built so it can’t quietly be wrong.</h2>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid rgba(243,239,230,0.13)">
+<div style="display:flex;flex-direction:column;gap:16px;padding:40px;border-right:1px solid rgba(243,239,230,0.13);border-bottom:1px solid rgba(243,239,230,0.13)">
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">The model only looks.</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">Claude lists what’s in the bag. Matching and the go/hold call are plain code we can read and test.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;padding:40px;border-bottom:1px solid rgba(243,239,230,0.13)">
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">It can only name menu items.</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">Its answer is locked to the restaurant’s menu, so it can’t invent a dish that isn’t sold.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;padding:40px;border-right:1px solid rgba(243,239,230,0.13)">
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2"><span style="color:#e9c27f">About 4 seconds</span> a bag.</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">3.5–5 s per check in our tests, read from the photo alone. Nobody presses a button.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;padding:40px">
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">Service never stalls.</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">If the model can’t be reached, it reads the codes printed on our cards and bag labels instead.</p>
+</div>
+</div>
+<div style="position:absolute;left:128px;right:128px;bottom:64px;display:flex;flex-direction:row;justify-content:space-between;border-top:1px solid rgba(243,239,230,0.13);padding:16px 0 0">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Handoff · AI expo for the pass</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">09</p>
+</div>
+
+</section>
+
+<section id="next" data-transition="fade" style="background:#1a1a1a;color:#f3efe6;font-family:'Inter Tight', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:56px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e;text-transform:uppercase;letter-spacing:1px">What’s next · roadmap</p>
+<h2 style="font-size:72px;font-weight:300;letter-spacing:-2px;line-height:1.1">A Gemma decision model on the phone.</h2>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid rgba(243,239,230,0.13)">
+<div style="display:flex;flex-direction:column;gap:20px;padding:48px;border-right:1px solid rgba(243,239,230,0.13);background:#141414">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#e9c27f">01 · Collect</p>
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">Every check is a lesson.</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">The photo, the ticket, and whether staff agreed with the call.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px;padding:48px;border-right:1px solid rgba(243,239,230,0.13);background:#141414">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#e9c27f">02 · Post-train</p>
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">Teach Gemma the go / hold call.</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">Fine-tune an open Gemma vision model on those labeled checks.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px;padding:48px;background:#141414">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#e9c27f">03 · On device</p>
+<h3 style="font-size:40px;font-weight:400;letter-spacing:-1px;line-height:1.2">Decide offline.</h3>
+<p style="font-size:28px;line-height:1.5;color:#aaa69e">Runs on the phone, no per-check cost. Claude stays the second opinion on close calls.</p>
+</div>
+</div>
+<p style="font-size:32px;line-height:1.45;color:#aaa69e;width:1500px">Also next: tickets straight from DoorDash, and the Dasher confirms pickup by name before the bag leaves.</p>
+<div style="position:absolute;left:128px;right:128px;bottom:64px;display:flex;flex-direction:row;justify-content:space-between;border-top:1px solid rgba(243,239,230,0.13);padding:16px 0 0">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">Handoff · AI expo for the pass</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#aaa69e">10</p>
+</div>
+
+</section>
+
+<section id="close" data-transition="fade" style="background:#f3efe6;color:#141414;font-family:'Inter Tight', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:center;gap:48px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#5c5954;text-transform:uppercase;letter-spacing:1px">◇ Handoff</p>
+<h1 style="font-size:136px;font-weight:300;letter-spacing:-5px;line-height:1.05;width:1500px">Now, for a live demonstration!</h1>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#5c5954">Romir Patel</p>
+
+</section>
+
+</div></div>
+<nav><button id="prev" aria-label="Previous slide">←</button><span class="count" id="count"></span><button id="next" aria-label="Next slide">→</button>
+<span class="spacer"></span><button id="full">Full screen</button><a href="Handoff-pitch-Romir-Patel.pdf" download>PDF</a></nav>
+<script>
+const slides=[...document.querySelectorAll('#deck section')], deck=document.getElementById('deck'), stage=document.getElementById('stage');
+let i=Math.min(Math.max((parseInt(location.hash.slice(1))||1)-1,0),slides.length-1);
+function fit(){const s=Math.min(stage.clientWidth/1920,stage.clientHeight/1080);deck.style.transform='translate(-50%,-50%) scale('+s+')';}
+function go(n){i=Math.min(Math.max(n,0),slides.length-1);slides.forEach((s,k)=>s.classList.toggle('on',k===i));
+  document.getElementById('count').textContent=(i+1)+' / '+slides.length;history.replaceState(null,'','#'+(i+1));}
+document.getElementById('prev').onclick=()=>go(i-1);document.getElementById('next').onclick=()=>go(i+1);
+document.getElementById('full').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();
+addEventListener('keydown',e=>{if(['ArrowRight','PageDown',' ','Enter'].includes(e.key)){e.preventDefault();go(i+1)}
+  else if(['ArrowLeft','PageUp','Backspace'].includes(e.key)){e.preventDefault();go(i-1)}
+  else if(e.key==='Home')go(0);else if(e.key==='End')go(slides.length-1);else if(e.key==='f')document.getElementById('full').click();});
+stage.addEventListener('click',e=>go(e.clientX<innerWidth/3?i-1:i+1));
+let tx=null;addEventListener('touchstart',e=>tx=e.touches[0].clientX,{passive:true});
+addEventListener('touchend',e=>{if(tx===null)return;const d=e.changedTouches[0].clientX-tx;if(Math.abs(d)>40)go(d<0?i+1:i-1);tx=null;});
+addEventListener('resize',fit);fit();go(i);
+</script></body></html>
