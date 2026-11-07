@@ -147,3 +147,47 @@ def test_every_order_with_a_dish():
     assert "No open order has garlic bread" in core.run_commands(empty, core.parse_commands("start all the garlic bread", empty))["say"]
     r = core.run_commands(k, core.parse_commands("cancel all orders", k))
     assert not r["ok"] and all(o["status"] != "cancelled" for o in k["orders"].values())
+
+
+def test_start_time_comes_from_pickup_and_slowest_dish():
+    k = kitchen()
+    o = k["orders"]["45"]  # ribeye medium rare 15 min is the slowest, plus 2 to pack
+    assert core.prep_minutes(o) == 17
+    assert o["pickup_at"] - o["start_at"] == 17 * 60_000
+    starts = [k["orders"][str(n)]["start_at"] for n in range(41, 66)]
+    assert starts == sorted(starts)  # demo comes due one after another
+    assert core.mins_until(k["orders"]["43"]["start_at"]) == 0
+
+
+def test_due_to_start_calls_each_order_once():
+    k = kitchen()
+    later = core.now_ms() + 3 * 60_000
+    due = [o["num"] for o in core.due_to_start(k, later)]
+    assert due == [44]  # 41-43 were already due when the demo loaded
+    assert core.due_to_start(k, later) == []
+    run(k, "fire order 45")
+    assert 45 not in [o["num"] for o in core.due_to_start(k, core.now_ms() + 60 * 60_000)]
+
+
+def test_dasher_eta_by_voice():
+    k = kitchen()
+    r = run(k, "Dasher for order 45 is 5 minutes away")
+    assert r["ok"] and core.mins_until(k["orders"]["45"]["pickup_at"]) == 5
+    assert "Start it now, it's 12 minutes late" in r["say"]
+    before = k["orders"]["46"]["pickup_at"]
+    run(k, "push order 46 back 10 minutes")
+    assert k["orders"]["46"]["pickup_at"] - before == 10 * 60_000
+    run(k, "move order 46 up 5 minutes")
+    assert k["orders"]["46"]["pickup_at"] - before == 5 * 60_000
+    assert core.parse_command("order 45 picked up", k)["intent"] == "picked_up"
+    assert core.parse_command("order 45 pickup in 20 minutes", k)["intent"] == "eta"
+    assert core.parse_command("order 45 is running late", k)["intent"] != "eta"  # no minutes, nothing to move
+
+
+def test_what_to_start_next():
+    k = kitchen()
+    for text in ("What should I start next?", "what's next"):
+        r = run(k, text)
+        assert r["order"] == 41 and "is next" in r["say"] and "late" in r["say"]
+    run(k, "fire order 41")
+    assert run(k, "what should we cook next")["order"] == 42

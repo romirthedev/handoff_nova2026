@@ -67,6 +67,8 @@ class Hub:
             k = core.new_kitchen("Harbor & Hearth")
             k["id"] = DEMO_ID
             self.kitchens[DEMO_ID] = k
+        for k in self.kitchens.values():
+            core.upgrade(k)
 
     def get(self, kid: str) -> dict:
         if kid not in self.kitchens:
@@ -106,6 +108,10 @@ class Hub:
                     core.log(k, f"⏲ #{o['num']} {name} is up")
                     await self.changed(k, {"type": "timer_done", "order": o["num"], "item": it["uid"],
                                            "say": f"Order {o['num']}, {name.lower()} is up."})
+                for o in core.due_to_start(k):
+                    core.log(k, f"▶ #{o['num']} time to start")
+                    await self.changed(k, {"type": "start_now", "order": o["num"],
+                                           "say": f"Start order {o['num']} for {o['guest'].split()[0]} now. {core.pickup_say(o)}"})
             if self.dirty and time.time() - last_save > 2:
                 self.dirty, last_save = False, time.time()
                 try:
@@ -205,6 +211,7 @@ def build_app() -> FastAPI:
         order: str
         item: str | None = None
         minutes: float | None = None
+        shift: int | None = None
 
     @app.post("/api/k/{kid}/action")
     async def action(kid: str, body: Action):
@@ -222,6 +229,7 @@ def build_app() -> FastAPI:
         guest: str
         source: str = "Walk-in"
         courier: str | None = None
+        pickup_in: int | None = None
         items: list[OrderLine]
 
     @app.post("/api/k/{kid}/orders")
@@ -231,9 +239,12 @@ def build_app() -> FastAPI:
         if not lines or not body.guest.strip():
             raise HTTPException(400, "An order needs a guest name and at least one item.")
         num = max([int(n) for n in k["orders"]] + [40]) + 1
-        k["orders"][str(num)] = core.new_order(num, body.guest.strip()[:40], body.source[:20], lines, body.courier)
+        o = core.new_order(num, body.guest.strip()[:40], body.source[:20], lines, body.courier)
+        if body.pickup_in:
+            core.set_pickup(o, core.now_ms() + max(1, min(body.pickup_in, 240)) * 60_000)
+        k["orders"][str(num)] = o
         core.log(k, f"+ #{num} {body.guest.strip()} ({body.source})")
-        await hub.changed(k, {"type": "new_order", "order": num, "say": f"New {body.source} order, number {num}."})
+        await hub.changed(k, {"type": "new_order", "order": num, "say": f"New {body.source} order, number {num}. {core.timing_say(o)}"})
         return {"num": num}
 
     @app.post("/api/k/{kid}/reset")

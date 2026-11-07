@@ -15,18 +15,85 @@ def now_ms() -> int:
     return int(time.time() * 1000)
 
 
-def new_order(num, guest, source, items, courier=None, placed=None):
-    return {
+PACK_MIN = 2  # bagging and labelling once the last dish is up
+
+
+def new_order(num, guest, source, items, courier=None, placed=None, pickup_at=None):
+    o = {
         "num": num, "guest": guest, "source": source, "courier": courier,
         "placed": placed or now_ms(), "status": "new", "check": None,
         "items": [{"uid": f"{num}-{i}", "menu": m, "qty": q, "mod": mod, "minutes": cook_minutes(m, mod),
                    "timer": None, "done": False} for i, (m, q, mod) in enumerate(items)],
     }
+    set_pickup(o, pickup_at or o["placed"] + (prep_minutes(o) + 8) * 60_000)
+    return o
+
+
+def prep_minutes(o) -> int:
+    """Dishes cook side by side, so an order takes as long as its slowest dish, plus packing."""
+    return max((it["minutes"] or 0) for it in o["items"]) + PACK_MIN
+
+
+def set_pickup(o, at_ms):
+    """When the Dasher (or guest) arrives, and so when the kitchen has to start the order to hit it."""
+    o["pickup_at"] = int(at_ms)
+    o["start_at"] = int(at_ms - prep_minutes(o) * 60_000)
+    o["nudged"] = o["start_at"] <= now_ms()  # already due: the ticket shows it, no call-out needed
 
 
 def demo_orders():
-    t = now_ms()
-    return {str(n): new_order(n, g, s, items, c, t - ago * 60_000) for n, g, s, ago, c, items in DEMO_ORDERS}
+    """The 25 sample tickets, staggered so one comes due to start about every two minutes."""
+    t, out = now_ms(), {}
+    for n, g, s, ago, c, items in DEMO_ORDERS:
+        o = new_order(n, g, s, items, c, t - ago * 60_000)
+        set_pickup(o, t + ((n - 41) * 2 - 4 + prep_minutes(o)) * 60_000)
+        out[str(n)] = o
+    return out
+
+
+def upgrade(k):
+    """Tickets saved before pickup times existed get a sensible one."""
+    for o in k["orders"].values():
+        if "pickup_at" not in o:
+            set_pickup(o, o["placed"] + (prep_minutes(o) + 8) * 60_000)
+
+
+def due_to_start(k, t=None):
+    """New orders whose start time just arrived. Each is returned once."""
+    t = t or now_ms()
+    due = [o for o in k["orders"].values() if o["status"] == "new" and not o.get("nudged") and o.get("start_at", t + 1) <= t]
+    for o in due:
+        o["nudged"] = True
+    return sorted(due, key=lambda o: o["start_at"])
+
+
+def mins_until(ms, t=None) -> int:
+    return round((ms - (t or now_ms())) / 60_000)
+
+
+def courier_word(o) -> str:
+    return ("Dasher" if o["source"] == "DoorDash" else "Courier") if o.get("courier") else "Pickup"
+
+
+def plural(n, word="minute") -> str:
+    return f"{n} {word}{'s' * (n != 1)}"
+
+
+def pickup_say(o) -> str:
+    p, who = mins_until(o["pickup_at"]), courier_word(o)
+    return f"{who} in {plural(p)}." if p > 0 else f"{who} is due now." if p == 0 else f"{who} was due {plural(-p)} ago."
+
+
+def start_say(o) -> str:
+    s = mins_until(o["start_at"])
+    return f"Start it in {plural(s)}." if s > 0 else "Start it now." if s == 0 else f"Start it now, it's {plural(-s)} late."
+
+
+def timing_say(o) -> str:
+    """'Dasher in 12 minutes. Start it in 3 minutes.' for whatever applies to this order right now."""
+    if not o.get("pickup_at"):
+        return ""
+    return pickup_say(o) + (" " + start_say(o) if o["status"] == "new" else "")
 
 
 def new_kitchen(name: str, demo: bool = True):
@@ -259,18 +326,22 @@ def words_to_digits(text: str) -> str:
 
 _ALIASES = sorted(((a, m["id"]) for m in MENU for a in m["aliases"]), key=lambda x: -len(x[0]))
 _INTENTS = [  # earlier wins when one order hears several
+    ("eta", r"\b(arriv\w*|minutes? (away|out)|push(ed|ing)?|back|delay(ed)?|running late|late|later|sooner|earlier|"
+            r"move\w*|up by|pick ?up (time )?(is )?(in|at))\b"),  # only counts with a number of minutes
     ("picked_up", r"\b(picked up|pick(ed)? ?up|handed (it )?off|hand(ed)? off|handoff|out the door|delivered|collected)\b"),
     ("add", r"\b(add|plus|extend|another|more time)\b"),
     ("cancel", r"\b(cancel|cancelled|canceled|void|scratch)\b"),
     ("stop", r"\b(stop|pause|kill|reset|clear)\b"),
     ("query", r"\b(how long|time left|how much (time|longer)|status|where (are|is)|what'?s left|check on|eta)\b"),
-    ("next", r"\b(what'?s next|next (order|ticket|up)|oldest)\b"),
+    ("next", r"\b(what'?s next|next (order|ticket|up)|oldest|start next|(what|which)( order)? (should|do) (i|we) (start|fire|cook))\b"),
     ("reopen", r"\b(reopen|re open|undo|back to new)\b"),
     ("start", r"\b(start|fire|begin|cook|drop|timer|put on|throw on|go on)\b"),
     ("show", r"\b(show|open|pull up|find|highlight)\b"),
     ("ready", r"\b(ready|done|finished|complete|bump|plated|up)\b"),
 ]
 _RANK = {name: i for i, (name, _) in enumerate(_INTENTS)}
+_LATER = r"\b(push(ed|ing)?|back|delay(ed)?|late|later)\b"
+_SOONER = r"\b(sooner|earlier|up by|move\w* (\w+ ){0,3}up)\b"
 _ALL = r"\b(all|every|each|any|everything)\b"
 _BULK = ("start", "stop", "add", "ready", "query")  # safe to run across the rail; cancel and hand-off need a number
 _WAITING = ("new", "cooking", "ready", "issue")
@@ -327,7 +398,7 @@ def parse_commands(text: str, k) -> list[dict]:
     """
     t = _normalize(text)
     refs = _order_refs(t, k)
-    slots = [{"intents": set(), "items": [], "minutes": None} for _ in refs] or [{"intents": set(), "items": [], "minutes": None}]
+    slots = [{"intents": set(), "items": [], "minutes": None, "shift": None} for _ in refs or [None]]
     pick = (lambda a, b, prefer=None: _nearest(refs, a, b, prefer) or 0) if refs else (lambda a, b, prefer=None: 0)
 
     for m in re.finditer(_MINUTES, t):
@@ -346,6 +417,8 @@ def parse_commands(text: str, k) -> list[dict]:
     for name, rx in _INTENTS:
         for m in re.finditer(rx, t):
             slots[pick(m.start(), m.end())]["intents"].add(name)
+    for m in re.finditer(_LATER + "|" + _SOONER, t):  # "push 45 back 10 minutes" moves the pickup; "5 minutes away" sets it
+        slots[pick(m.start(), m.end())]["shift"] = -1 if re.fullmatch(_SOONER, m.group(0)) else 1
 
     cmds, prev = [], None
     for i, slot in enumerate(slots):
@@ -353,14 +426,14 @@ def parse_commands(text: str, k) -> list[dict]:
         items = [mid for _, mid in sorted(slot["items"])]
         if "cancel" in intents:  # "cancel the timer" / "cancel the steak" stop timers; "cancel order 46" voids it
             intents = (intents - {"cancel", "start"}) | ({"stop"} if items or "start" in intents else {"cancel"})
-        if "add" in intents and slot["minutes"] is None:
-            intents.discard("add")
+        if slot["minutes"] is None:
+            intents -= {"add", "eta"}
         intent = min(intents, key=_RANK.get) if intents else prev
         if intent == "next" and refs:
             intent = prev
         prev = intent or prev
         cmds.append({"intent": intent, "order": refs[i][2] if refs else None, "item": items[0] if items else None,
-                     "items": items, "minutes": slot["minutes"], "text": text})
+                     "items": items, "minutes": slot["minutes"], "shift": slot["shift"], "text": text})
     if not refs and re.search(_ALL, t):
         return _for_every_order(cmds[0], k)
     return cmds
@@ -403,8 +476,13 @@ def run_command(k, cmd) -> dict:
     """Apply a parsed command. Returns {ok, say, order} where say is read aloud at the pass."""
     intent, num, mid, minutes = cmd["intent"], cmd["order"], cmd["item"], cmd["minutes"]
     if intent == "next":
-        waiting = sorted((o for o in k["orders"].values() if o["status"] in ("new", "cooking", "ready", "issue")),
-                         key=lambda o: o["placed"])
+        to_start = sorted((o for o in k["orders"].values() if o["status"] == "new" and o.get("start_at")),
+                          key=lambda o: o["start_at"])
+        if to_start:  # the order whose pickup time leaves the least slack
+            o = to_start[0]
+            return {"ok": True, "order": o["num"],
+                    "say": f"Order {o['num']} for {o['guest'].split()[0]} is next. {start_say(o)} {pickup_say(o)}"}
+        waiting = sorted((o for o in k["orders"].values() if o["status"] in _WAITING), key=lambda o: o["placed"])
         if not waiting:
             return {"ok": True, "say": "No open tickets. Nice work."}
         o = waiting[0]
@@ -426,6 +504,12 @@ def run_command(k, cmd) -> dict:
                        + ", ".join(BY_ID[it["menu"]]["name"].lower() for it in o["items"]) + "."}
     label = BY_ID[mid]["name"].lower() if mid else None
 
+    if intent == "eta":
+        base = o.get("pickup_at") or now_ms()
+        at = base + cmd.get("shift") * minutes * 60_000 if cmd.get("shift") else now_ms() + minutes * 60_000
+        set_pickup(o, max(at, now_ms()))
+        log(k, f"⇢ #{num} {courier_word(o).lower()} in {plural(mins_until(o['pickup_at']), 'min')}")
+        return {"ok": True, "order": o["num"], "say": f"Order {num}: " + timing_say(o)}
     if intent == "start":
         started, skipped = start_timers(k, o, mid, minutes)
         if not started:
@@ -458,7 +542,7 @@ def run_command(k, cmd) -> dict:
         if o["check"] and not o["check"]["ok"]:
             status += ". Last check: " + o["check"]["reason"].lower()
         return {"ok": True, "order": o["num"], "say": f"Order {num} for {o['guest'].split()[0]} is {status}"
-                + (". " + "; ".join(bits) if bits else "") + "."}
+                + (". " + "; ".join(bits) if bits else "") + ". " + timing_say(o)}
     if intent == "ready":
         if mid:
             mark_items_done(o, mid)

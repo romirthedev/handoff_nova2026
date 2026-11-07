@@ -6,8 +6,9 @@ const STATUS = { new: "New", cooking: "Cooking", ready: "Ready", issue: "Issue",
 const FILTERS = [["open", "Open"], ["new", "New"], ["cooking", "Cooking"], ["ready", "Ready"], ["issue", "Issue"], ["verified", "Checked"], ["out", "Out"]];
 const isOpen = (o) => o.status !== "picked_up" && o.status !== "cancelled";
 const inFilter = (o, f) => (f === "open" ? isOpen(o) : f === "out" ? !isOpen(o) : o.status === f);
-const EXAMPLES = ["Start the timer for order 45 steak", "Fire order 53", "How long on order 45?", "Add 2 minutes to order 45 lobster",
-                  "Order 45 is ready", "Order 45 picked up", "What's next?"];
+const EXAMPLES = ["Start the timer for order 45 steak", "What should I start next?", "Dasher for order 45 is 10 minutes away",
+                  "Push order 50 back 10 minutes", "For all orders with garlic bread start the garlic bread timer",
+                  "How long on order 45?", "Order 45 picked up"];
 
 let state = null, menu = {}, sources = [], offset = 0, filter = "open", focusNum = null;
 const flashes = {};            // order num -> {cls, until}
@@ -19,6 +20,7 @@ const orbs = {};
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const now = () => Date.now() + offset;
 const mmss = (s) => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+const hm = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 const ago = (ms) => { const m = Math.floor((now() - ms) / 60000); return m < 1 ? "just now" : m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`; };
 
 function toast(text, bad) {
@@ -73,6 +75,27 @@ function itemRow(o, it, missing) {
     <span class="n">${esc(m.name)}${mod}</span>${timer}<span class="bar"></span></li>`;
 }
 
+// when to start an order so it's packed as its Dasher walks in: pickup time minus the slowest dish minus packing
+function planHTML(o) {
+  if (!o.pickup_at || !isOpen(o)) return "";
+  const who = o.courier ? (o.source === "DoorDash" ? "Dasher" : "Courier") : "Pickup";
+  return `<div class="plan" data-pickup="${o.pickup_at}" data-who="${who}"${o.status === "new" ? ` data-start="${o.start_at}"` : ""}>
+    <span class="go"></span><span class="eta"></span>
+    <span class="nudge"><button data-act="eta" data-min="-5" title="${who} 5 minutes sooner">−5</button><button data-act="eta" data-min="5" title="${who} 5 minutes later">+5</button></span></div>`;
+}
+const startState = (d) => (d > 120 ? "" : d > 0 ? "soon" : d > -60 ? "now" : "late");
+function paintPlan(el) {
+  const t = now(), p = +el.dataset.pickup, go = el.querySelector(".go"), eta = el.querySelector(".eta");
+  if (el.dataset.start) {
+    const d = (+el.dataset.start - t) / 1000;
+    go.textContent = d > 0 ? `Start in ${mmss(d)}` : d > -60 ? "Start now" : `Late ${Math.floor(-d / 60)}m · start now`;
+    go.className = "go " + startState(d);
+  } else { go.textContent = ""; go.className = "go"; }
+  const pm = Math.round((p - t) / 60000);
+  eta.textContent = `${el.dataset.who} ${hm(p)} · ` + (pm > 0 ? `${pm}m` : pm === 0 ? "now" : `${-pm}m late`);
+  eta.className = "eta" + (pm < 0 ? " late" : "");
+}
+
 function ticketHTML(o) {
   const age = (now() - o.placed) / 60000;
   const missing = new Set((o.check && !o.check.ok ? o.check.missing : []).map((x) => x.id));
@@ -88,6 +111,7 @@ function ticketHTML(o) {
       <span class="age ${age > 20 ? "late" : age > 12 ? "warm" : ""}" data-placed="${o.placed}">${ago(o.placed)}</span></header>
     <h3>${esc(o.guest)}</h3>
     <div class="sub">${who}</div>
+    ${planHTML(o)}
     <ul class="items">${o.items.map((it) => itemRow(o, it, missing.has(it.menu))).join("")}</ul>
     ${check}
     <footer>
@@ -107,6 +131,14 @@ function render() {
   const shown = orders.filter((o) => inFilter(o, filter));
   $("rail").innerHTML = shown.length ? shown.map(ticketHTML).join("") :
     `<div class="empty">${filter === "open" ? "No open tickets. Add one with + New order." : "Nothing here right now."}</div>`;
+  const next = orders.filter((o) => o.status === "new" && o.start_at).sort((a, b) => a.start_at - b.start_at).slice(0, 4);
+  $("queue").innerHTML = next.length ? next.map((o) => {
+    const slow = o.items.reduce((a, it) => ((it.minutes || 0) > (a.minutes || 0) ? it : a), o.items[0]);
+    const who = o.courier ? (o.source === "DoorDash" ? "Dasher" : "Courier") : "Pickup";
+    return `<li><button type="button" data-num="${o.num}"><span class="qn">#${o.num}</span>
+      <span class="qg">${esc(o.guest)}<small>${esc((menu[slow.menu] || {}).name || "")}${slow.minutes ? ` ${slow.minutes} min` : ""} · ${who} ${hm(o.pickup_at)}</small></span>
+      <span class="when" data-start="${o.start_at}"></span></button></li>`;
+  }).join("") : `<li class="none">Nothing waiting to start.</li>`;
   document.querySelectorAll("#speed button").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.speed === (k.speed || 1))));
 
   const cams = state.cameras;
@@ -140,6 +172,12 @@ function tickClock() {
     b.textContent = mmss(left);
     const bar = b.parentElement.querySelector(".bar");
     if (bar) bar.style.width = `${Math.min(100, 100 * (1 - left / +b.dataset.total))}%`;
+  });
+  document.querySelectorAll(".plan[data-pickup]").forEach(paintPlan);
+  document.querySelectorAll(".when[data-start]").forEach((w) => {
+    const d = (+w.dataset.start - now()) / 1000;
+    w.textContent = d > 0 ? `in ${mmss(d)}` : d > -60 ? "now" : `${Math.floor(-d / 60)}m late`;
+    w.className = "when " + startState(d);
   });
   document.querySelectorAll(".age[data-placed]").forEach((a) => {
     const m = (now() - +a.dataset.placed) / 60000;
@@ -228,6 +266,8 @@ function connect() {
       if (r.order) flash(r.order, r.ok);
     } else if (m.type === "timer_done") {
       freshUp[m.item] = Date.now() + 15000; chime(true); say(m.say); speak(m.say); toast("⏲ " + m.say);
+    } else if (m.type === "start_now") {
+      chime(true); say(m.say); speak(m.say); toast("▶ " + m.say);
     } else if (m.type === "new_order") {
       say(m.say); chime(true);
     }
@@ -284,10 +324,13 @@ $("rail").addEventListener("click", async (e) => {
   if (!b) return;
   const num = b.closest(".ticket").dataset.num;
   try {
-    const r = await post("/action", { intent: b.dataset.act, order: num, item: b.dataset.item || null });
+    const min = b.dataset.min ? +b.dataset.min : null;  // the ±5 pickup buttons
+    const r = await post("/action", { intent: b.dataset.act, order: num, item: b.dataset.item || null,
+                                      minutes: min && Math.abs(min), shift: min && Math.sign(min) });
     if (r.say) { say(r.say); if (!r.ok) toast(r.say, true); }
   } catch (err) { toast(err.message, true); }
 });
+$("queue").addEventListener("click", (e) => { const b = e.target.closest("button[data-num]"); if (b) focusTicket(+b.dataset.num); });
 $("filters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { filter = b.dataset.f; render(); } });
 $("speed").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) post("/settings", { speed: +b.dataset.speed }); });
 $("reset").addEventListener("click", async () => { if (confirm("Put all 25 demo tickets back to new?")) { await post("/reset"); toast("Demo tickets reset"); } });
@@ -330,7 +373,8 @@ $("orderform").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!picked.length) { toast("Pick at least one item.", true); return; }
   try {
-    const r = await post("/orders", { guest: $("o-guest").value, source: $("o-source").value, courier: $("o-courier").value || null, items: picked });
+    const r = await post("/orders", { guest: $("o-guest").value, source: $("o-source").value, courier: $("o-courier").value || null,
+                                      pickup_in: +$("o-pickup").value, items: picked });
     $("dlg").close(); filter = "open"; setTimeout(() => focusTicket(r.num), 150);
   } catch (err) { toast(err.message, true); }
 });

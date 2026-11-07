@@ -54,6 +54,27 @@
   .s-verified .pill { color: var(--ok); border-color: var(--ok-line); }
   .ticket h3 { font: 300 23px/1.2 var(--sans); letter-spacing: -0.02em; margin: 8px 0 0; }
   .ticket .sub { font: 400 10.5px var(--mono); color: var(--dim); margin-bottom: 8px; }
+  .plan { display: flex; align-items: center; gap: 8px; font: 400 10.5px var(--mono); color: var(--muted); margin: -4px 0 8px; min-height: 18px; }
+  .plan .go:empty { display: none; }
+  .plan .go, .plan .eta { white-space: nowrap; }
+  .plan .eta { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .plan .go.soon, .queue .when.soon { color: var(--heat); }
+  .plan .go.now, .queue .when.now { background: var(--heat); color: var(--bg); padding: 1px 6px; animation: pulse 1.2s ease infinite; }
+  .plan .go.late, .queue .when.late { background: var(--bad); color: var(--bg); padding: 1px 6px; }
+  .plan .eta.late { color: var(--bad); }
+  .plan .nudge { margin-left: auto; display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+  .ticket:hover .plan .nudge, .plan .nudge:focus-within { opacity: 1; }
+  @media (hover: none) { .plan .nudge { opacity: 1; } }
+  .plan .nudge button { all: unset; cursor: pointer; font: 400 10px var(--mono); color: var(--dim); padding: 1px 5px; border: 1px solid var(--line); }
+  .plan .nudge button:hover { color: var(--fg); border-color: var(--line-strong); }
+  .queue { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .queue button { all: unset; cursor: pointer; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .queue button:hover { background: var(--hover); }
+  .queue .qn { font: 500 11px var(--mono); }
+  .queue .qg { font-size: 14px; min-width: 0; }
+  .queue .qg small { display: block; font: 400 10px var(--mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .queue .when { font: 400 11px var(--mono); color: var(--muted); white-space: nowrap; }
+  .queue .none { font-size: 13px; color: var(--muted); padding: 8px 0; }
   .items { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); flex: 1; }
   .items li { position: relative; display: grid; grid-template-columns: 22px 22px 1fr auto; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
   .items li .q { font: 400 11px var(--mono); color: var(--muted); }
@@ -183,6 +204,10 @@
     <main><div class="rail" id="rail" aria-live="polite"></div></main>
     <aside>
       <section class="panel">
+        <h2 class="label"><span>Start next</span><span>by pickup time</span></h2>
+        <ol class="queue" id="queue"></ol>
+      </section>
+      <section class="panel">
         <h2 class="label"><span>Pass camera</span><span class="camstate"><span class="live" id="camdot"></span><span id="camtext">No camera</span></span></h2>
         <div class="pair">
           <img id="qr" alt="QR code that opens the pass camera on a phone">
@@ -218,7 +243,13 @@
       <input class="field" id="o-guest" placeholder="Guest name" maxlength="40" required>
       <select class="field" id="o-source"></select>
     </div>
-    <input class="field" id="o-courier" placeholder="Courier (optional)" maxlength="30">
+    <div class="row">
+      <input class="field" id="o-courier" placeholder="Courier (optional)" maxlength="30">
+      <select class="field" id="o-pickup" aria-label="Pickup in">
+        <option value="10">Pickup in 10 min</option><option value="15">Pickup in 15 min</option><option value="20" selected>Pickup in 20 min</option>
+        <option value="30">Pickup in 30 min</option><option value="45">Pickup in 45 min</option><option value="60">Pickup in 60 min</option>
+      </select>
+    </div>
     <div class="chips" id="o-chips"></div>
     <ul class="picked" id="o-picked"></ul>
     <div class="actions">
