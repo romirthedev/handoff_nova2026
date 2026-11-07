@@ -120,7 +120,7 @@ class Hub:
                 for o in core.due_to_start(k):
                     core.log(k, f"▶ #{o['num']} time to start")
                     await self.changed(k, {"type": "start_now", "order": o["num"],
-                                           "say": f"Start order {o['num']} for {o['guest'].split()[0]} now. {core.pickup_say(o)}"})
+                                           "say": f"Start order {o['num']} for {core.short_name(o)} now. {core.pickup_say(o)}"})
             if self.dirty and time.time() - last_save > 2:
                 self.dirty, last_save = False, time.time()
                 try:

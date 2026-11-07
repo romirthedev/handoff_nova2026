@@ -257,3 +257,12 @@ def test_questions_about_the_rail():
     r = run(k, "what orders should i fire up now")
     assert r["say"].startswith("Start 3 orders now: order 41 for Maya")
     assert "is next" in run(k, "what's next")["say"]
+
+
+def test_order_for_a_table():
+    k = kitchen()
+    r = run(k, "Can you make a order for table 2 with two margarita pizzas and a soda")
+    o = k["orders"][str(r["order"])]
+    assert o["guest"] == "Table 2" and [(it["menu"], it["qty"]) for it in o["items"]] == [("pizza", 2), ("soda", 1)]
+    assert "for Table 2" in r["say"]
+    assert run(k, "fire table 2")["order"] == o["num"] and o["status"] == "cooking"

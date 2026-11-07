@@ -112,6 +112,11 @@ def new_kitchen(name: str, demo: bool = True):
             "created": now_ms(), "speed": 1, "orders": demo_orders() if demo else {}, "scans": [], "log": []}
 
 
+def short_name(o) -> str:
+    """What to call the guest out loud: "Maya", or "Table 2" for a dine-in ticket."""
+    return o["guest"] if o["guest"].startswith("Table ") else o["guest"].split()[0]
+
+
 def item_name(it) -> str:
     return BY_ID[it["menu"]]["name"] + (f" ({it['mod']})" if it["mod"] and BY_ID[it["menu"]]["cook"].__class__ is dict else "")
 
@@ -388,12 +393,16 @@ def _normalize(text: str) -> str:
 def _order_refs(t: str, k) -> list:
     """(start, end, num) wherever an order is named: "order 45", a bare open order number, or a guest's first name."""
     refs = []
+    tables = {o["guest"].lower(): str(o["num"]) for o in k["orders"].values() if o["status"] in OPEN}
     for m in re.finditer(r"\b(?:(?:order|ticket|number|table)\s+(?:number\s+)?)?(\d{1,4})\b(?!\s*(?:minutes?|mins?|seconds?|secs?)\b)", t):
-        if m.group(0)[0].isalpha() or m.group(1) in k["orders"]:
+        table = re.match(r"table (?:number )?(\d+)", m.group(0))
+        if table and f"table {table.group(1)}" in tables:  # "fire table 2" means the ticket rung in for table 2
+            refs.append((m.start(), m.end(), tables[f"table {table.group(1)}"]))
+        elif m.group(0)[0].isalpha() or m.group(1) in k["orders"]:
             refs.append((m.start(), m.end(), m.group(1)))
     names = {}
     for o in k["orders"].values():
-        if o["status"] in OPEN:
+        if o["status"] in OPEN and not o["guest"].startswith("Table "):
             names.setdefault(o["guest"].split()[0].lower(), []).append(str(o["num"]))
     for m in re.finditer(r"[a-z]+", t):
         if len(names.get(m.group(0), [])) == 1 and not any(a <= m.start() < b for a, b, _ in refs):
@@ -421,7 +430,8 @@ def _nearest(refs, a, b, prefer=None):
 
 
 # "We just got an order for Ben Frank: two fried shrimp, a side of fries and a smashburger" rings in a ticket
-_NEW_ORDER = (r"\b(new order|(got|get|getting|taking|take|ring|ringing|put|putting|enter|place|placing|incoming|add|adding)"
+_NEW_ORDER = (r"\b(new order|(got|get|getting|taking|take|ring|ringing|put|putting|enter|place|placing|incoming|add|adding|"
+              r"make|making|create|creating|open|start|starting|need|want)"
               r"( \w+){0,3} orders?|orders? (just )?(came|comes|coming) in)\b")
 _NAME_STOP = {"it", "its", "it's", "with", "and", "who", "that", "they", "he", "she", "please", "for", "the", "a", "an",
               "of", "is", "wants", "want", "ordered", "ordering", "on", "from", "via", "through", "pickup", "pick", "in"}
@@ -432,6 +442,9 @@ def _parse_new_order(text: str, t: str):
     """The guest, app and dishes in "new order for <name> ..."; None unless it names a guest and a dish."""
     if not re.search(_NEW_ORDER, t) or re.search(r"\b(order|ticket) (number )?\d", t):
         return None
+    table = re.search(r"\b(?:for|at|to) table (?:number )?(\d+)\b", t)
+    if table:  # "table 2" names the guest; its number is not a quantity
+        t = t[:table.start(1)] + " " * len(table.group(1)) + t[table.end(1):]
     lines, taken = [], []
     for alias, mid in _ALIASES:
         for m in re.finditer(rf"\b{re.escape(alias)}(?:e?s)?\b", t):
@@ -456,6 +469,8 @@ def _parse_new_order(text: str, t: str):
                 name.append(w2[:1].upper() + w2[1:])
             if name:
                 break
+    if table:
+        name = ["Table", table.group(1)]
     if not lines or not name:
         return None
     source = next((s for s, rx in _VIEW_SOURCES.items() if re.search(rf"\b({rx})\b", t)), "Walk-in")
@@ -555,7 +570,7 @@ _VIEW_WORD = {"cooking": "cooking", "new": "new", "ready": "ready", "issue": "fl
 
 def say_orders(orders) -> str:
     """'order 41 for Maya and order 45 for John', or just the numbers once there are more than three."""
-    names = [f"order {o['num']} for {o['guest'].split()[0]}" for o in orders] if len(orders) <= 3 \
+    names = [f"order {o['num']} for {short_name(o)}" for o in orders] if len(orders) <= 3 \
         else [str(o["num"]) for o in orders[:8]] + ([f"{len(orders) - 8} more"] if len(orders) > 8 else [])
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
 
@@ -615,7 +630,7 @@ def run_command(k, cmd) -> dict:
         dishes = ", ".join(f"{it['qty']} " + re.sub(r"(?<![sp])( \(|$)", r"s\1", item_name(it).lower(), count=1)
                            if it["qty"] > 1 else item_name(it).lower() for it in o["items"])  # "2 carnitas tacos", "2 fried shrimp"
         return {"ok": True, "order": o["num"], "new_order": o["num"],
-                "say": f"New order {o['num']} for {o['guest'].split()[0]}: {dishes}. {timing_say(o)}"}
+                "say": f"New order {o['num']} for {short_name(o)}: {dishes}. {timing_say(o)}"}
     if intent == "view":
         matches = sorted((o for o in k["orders"].values() if in_view(o, cmd["view"])), key=lambda o: o["num"])
         return {"ok": True, "view": cmd["view"], "count": len(matches), "say": view_say(cmd["view"], matches)}
@@ -632,7 +647,7 @@ def run_command(k, cmd) -> dict:
         if to_start:  # the order whose pickup time leaves the least slack
             o = to_start[0]
             return {"ok": True, "order": o["num"],
-                    "say": f"Order {o['num']} for {o['guest'].split()[0]} is next. {start_say(o)} {pickup_say(o)}"}
+                    "say": f"Order {o['num']} for {short_name(o)} is next. {start_say(o)} {pickup_say(o)}"}
         waiting = sorted((o for o in k["orders"].values() if o["status"] in _WAITING), key=lambda o: o["placed"])
         if not waiting:
             return {"ok": True, "say": "No open tickets. Nice work."}
@@ -674,7 +689,7 @@ def run_command(k, cmd) -> dict:
             return {"ok": False, "order": o["num"], "say": f"Nothing on order {num} needs a timer right now."}
         parts = [f"{item_name(it).lower()}, {fmt_left(it['timer']['mins'] * 60)}" for it in started]
         log(k, f"▷ #{num} timer: " + "; ".join(parts))
-        return {"ok": True, "order": o["num"], "say": f"Order {num}, {o['guest'].split()[0]}: " + "; ".join(parts) + "."}
+        return {"ok": True, "order": o["num"], "say": f"Order {num}, {short_name(o)}: " + "; ".join(parts) + "."}
     if intent == "stop":
         stopped = stop_timers(o, mid, mod)
         log(k, f"■ #{num} timer stopped" + (f" ({label})" if label else ""))
@@ -697,7 +712,7 @@ def run_command(k, cmd) -> dict:
         status = STATUS_LABEL[o["status"]].lower()
         if o["check"] and not o["check"]["ok"]:
             status += ". Last check: " + o["check"]["reason"].lower()
-        return {"ok": True, "order": o["num"], "say": f"Order {num} for {o['guest'].split()[0]} is {status}"
+        return {"ok": True, "order": o["num"], "say": f"Order {num} for {short_name(o)} is {status}"
                 + (". " + "; ".join(bits) if bits else "") + ". " + timing_say(o)}
     if intent == "ready":
         if mid:
@@ -710,12 +725,12 @@ def run_command(k, cmd) -> dict:
     if intent == "picked_up":
         set_status(o, "picked_up")
         log(k, f"→ #{num} picked up")
-        return {"ok": True, "order": o["num"], "say": f"Order {num} for {o['guest'].split()[0]} is out the door."}
+        return {"ok": True, "order": o["num"], "say": f"Order {num} for {short_name(o)} is out the door."}
     if intent == "cancel":
         stop_timers(o)
         o["status"] = "cancelled"
         log(k, f"⨯ #{num} cancelled")
-        return {"ok": True, "order": o["num"], "say": f"Order {num} for {o['guest'].split()[0]} is cancelled."}
+        return {"ok": True, "order": o["num"], "say": f"Order {num} for {short_name(o)} is cancelled."}
     if intent == "reopen":
         stop_timers(o)
         o["status"], o["check"] = "new", None
