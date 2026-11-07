@@ -350,7 +350,8 @@ _INTENTS = [  # earlier wins when one order hears several
     ("stop", r"\b(stop|pause|kill|reset|clear)\b"),
     ("query", r"\b(how long|time left|how much (time|longer)|status|where (are|is)|what'?s left|check on|eta)\b"),
     ("next", r"\b(what'?s next|next (order|ticket|up)|oldest|start next|(what|which)( order)? (should|do) (i|we) (start|fire|cook)|"
-             r"(what|which)\b[\w' ]{0,30}\b(have|need|needs|got|should|supposed|ought) (to )?(be )?(start|fire|cook)\w*|"
+             r"(what|which)\b[\w' ]{0,30}\b(have|need|needs|got|should|supposed|ought|do|can|gotta)( (i|we|you))? (to )?(be )?"
+             r"(start|fire|cook|drop|make)\w*|anything to (start|fire)|"
              r"(what|which)\b[\w' ]{0,30}\bis (due|up next))\b"),
     ("reopen", r"\b(reopen|re open|undo|back to new)\b"),
     ("start", r"\b(start|fire|begin|cook|drop|timer|put on|throw on|go on)\b"),
@@ -361,7 +362,8 @@ _RANK = {name: i for i, (name, _) in enumerate(_INTENTS)}
 _LATER = r"\b(push(ed|ing)?|back|delay(ed)?|late|later)\b"
 _SOONER = r"\b(sooner|earlier|up by|move\w* (\w+ ){0,3}up)\b"
 # "show me the orders that are cooking" / "which tickets have burgers" change what the rail shows, not the orders
-_VIEW_VERB = r"\b(show|only|filter|display|list|see|view|pull up|find|which|what (orders|tickets))\b"
+_VIEW_VERB = (r"\b(show|only|filter|display|list|see|view|pull up|find|which|what (orders|tickets)|how many|anything|"
+              r"any (orders?|tickets?)|are there|is there|do we have|what'?s|what (is|are)|are we|who)\b")
 _ACTING = r"\b(fire|timers?|stop|add|push|delay|move|mark|reopen)\b"
 _VIEW_STATUS = [("cooking", r"cooking|on the (fire|grill)|in progress|firing"), ("ready", r"ready|done|finished|plated"),
                 ("issue", r"issues?|problems?|wrong|missing|flagged"), ("verified", r"checked|verified|good to go|passed"),
@@ -551,15 +553,24 @@ def in_view(o, v, t=None) -> bool:
 _VIEW_WORD = {"cooking": "cooking", "new": "new", "ready": "ready", "issue": "flagged", "verified": "checked", "out": "closed"}
 
 
-def view_say(v, n) -> str:
+def say_orders(orders) -> str:
+    """'order 41 for Maya and order 45 for John', or just the numbers once there are more than three."""
+    names = [f"order {o['num']} for {o['guest'].split()[0]}" for o in orders] if len(orders) <= 3 \
+        else [str(o["num"]) for o in orders[:8]] + ([f"{len(orders) - 8} more"] if len(orders) > 8 else [])
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
+def view_say(v, matches) -> str:
+    n = len(matches)
     if not (v.get("status") or v.get("items") or v.get("source") or v.get("late")):
         return f"Showing all {plural(n, 'open order')}."
-    desc = ("late " if v.get("late") else "") + _VIEW_WORD.get(v.get("status"), "open") + " order"
+    word = _VIEW_WORD.get(v.get("status"), "open" if not (v.get("late") or v.get("items") or v.get("source")) else "")
+    desc = " ".join(w for w in ("late" if v.get("late") else "", word, "order") if w)
     tail = (" with " + " or ".join(BY_ID[m]["name"].lower() for m in v["items"]) if v.get("items") else "") \
         + (f" from {v['source']}" if v.get("source") else "")
     if not n:
         return f"No {desc}s{tail} right now. Say \"show everything\" to see the whole rail."
-    return f"Showing {n} {desc}{'s' * (n != 1)}{tail}."
+    return f"Showing {n} {desc}{'s' * (n != 1)}{tail}: {say_orders(matches)}."
 
 
 def _for_every_order(cmd, k) -> list[dict]:
@@ -601,15 +612,23 @@ def run_command(k, cmd) -> dict:
     if intent == "new_order":
         n = cmd["new"]
         o = add_order(k, n["guest"], n["source"], n["items"], pickup_in=n["pickup_in"])
-        dishes = ", ".join((f"{it['qty']} " if it["qty"] > 1 else "") + item_name(it).lower() for it in o["items"])
+        dishes = ", ".join(f"{it['qty']} " + re.sub(r"(?<![sp])( \(|$)", r"s\1", item_name(it).lower(), count=1)
+                           if it["qty"] > 1 else item_name(it).lower() for it in o["items"])  # "2 carnitas tacos", "2 fried shrimp"
         return {"ok": True, "order": o["num"], "new_order": o["num"],
                 "say": f"New order {o['num']} for {o['guest'].split()[0]}: {dishes}. {timing_say(o)}"}
     if intent == "view":
-        n = sum(in_view(o, cmd["view"]) for o in k["orders"].values())
-        return {"ok": True, "view": cmd["view"], "count": n, "say": view_say(cmd["view"], n)}
+        matches = sorted((o for o in k["orders"].values() if in_view(o, cmd["view"])), key=lambda o: o["num"])
+        return {"ok": True, "view": cmd["view"], "count": len(matches), "say": view_say(cmd["view"], matches)}
     if intent == "next":
         to_start = sorted((o for o in k["orders"].values() if o["status"] == "new" and o.get("start_at")),
                           key=lambda o: o["start_at"])
+        due = [o for o in to_start if o["start_at"] <= now_ms() + 30_000]
+        many = re.search(r"\b(orders|tickets|ones|anything|everything|now)\b", _normalize(cmd["text"]))
+        if len(due) > 1 and many:  # "what orders should I fire up now": every ticket whose start time has come
+            later = to_start[len(due)] if len(to_start) > len(due) else None
+            return {"ok": True, "order": due[0]["num"],
+                    "say": f"Start {len(due)} orders now: {say_orders(due)}."
+                           + (f" Then order {later['num']} in {plural(mins_until(later['start_at']))}." if later else "")}
         if to_start:  # the order whose pickup time leaves the least slack
             o = to_start[0]
             return {"ok": True, "order": o["num"],

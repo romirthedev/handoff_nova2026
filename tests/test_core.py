@@ -202,7 +202,7 @@ def test_show_changes_the_view_not_the_orders():
     assert r["view"]["status"] == "cooking" and "Showing 2 cooking orders" in r["say"]
     assert [o["status"] for o in k["orders"].values()].count("cooking") == 2  # nothing changed
     r = view("show me all the orders with cheeseburgers")
-    assert r["view"]["items"] == ["burger"] and r["view"]["status"] is None and "Showing 3 open orders with smash burger" in r["say"]
+    assert r["view"]["items"] == ["burger"] and r["view"]["status"] is None and "Showing 3 orders with smash burger" in r["say"]
     r = view("which tickets have garlic bread")
     assert r["view"]["items"] == ["bread"]
     r = view("only show doordash orders that are new")
@@ -245,3 +245,15 @@ def test_what_to_start_phrasings():
     for said in ("What's the order that I have to start right now", "which ticket needs to be started", "what do I need to fire"):
         assert core.parse_command(said, k)["intent"] == "next", said
     assert core.parse_command("which orders are late", k)["intent"] == "view"
+
+
+def test_questions_about_the_rail():
+    k = kitchen()
+    r = run(k, "How many orders have ribeye steak")
+    assert r["view"]["items"] == ["ribeye"] and "45, 53, 60 and 65" in r["say"]
+    for said in ("what is late", "anything late", "are we behind on anything"):
+        assert run(k, said)["view"]["late"], said
+    assert run(k, "whats ready")["view"]["status"] == "ready"
+    r = run(k, "what orders should i fire up now")
+    assert r["say"].startswith("Start 3 orders now: order 41 for Maya")
+    assert "is next" in run(k, "what's next")["say"]
